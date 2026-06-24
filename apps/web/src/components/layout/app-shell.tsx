@@ -9,9 +9,9 @@ import { clearAuthToken } from "@/src/lib/api-client";
 import { cn } from "@/src/lib/cn";
 
 const navItems = [
-  { href: "/groups", label: "Groups", icon: Users, activePath: "/groups" },
-  { href: "/groups", label: "Dashboard", icon: Home },
-  { href: "/groups", label: "Expenses", icon: ReceiptText },
+  { href: "/groups", label: "Nhóm", icon: Users, activePath: "/groups" },
+  { href: "/groups", label: "Tổng quan", icon: Home },
+  { href: "/groups", label: "Chi tiêu", icon: ReceiptText },
 ];
 
 export function AppShell({
@@ -46,7 +46,7 @@ export function AppShell({
                 <div>
                   <p className="text-sm font-semibold">Tino Expense</p>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    Tracking workspace
+                    Không gian theo dõi chi tiêu
                   </p>
                 </div>
               </div>
@@ -80,7 +80,7 @@ export function AppShell({
             <div className="mt-auto border-t border-zinc-200 p-4 dark:border-zinc-800">
               <button className="flex h-10 w-full items-center gap-3 rounded-md px-3 text-sm font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900">
                 <Settings size={17} />
-                Settings
+                Cài đặt
               </button>
               <button
                 className="mt-1 flex h-10 w-full items-center gap-3 rounded-md px-3 text-sm font-medium text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
@@ -88,7 +88,7 @@ export function AppShell({
                 type="button"
               >
                 <LogOut size={17} />
-                Logout
+                Đăng xuất
               </button>
             </div>
           </div>
@@ -98,7 +98,7 @@ export function AppShell({
           <header className="sticky top-0 z-10 border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/90">
             <div className="flex min-h-16 items-center gap-3 px-4 sm:px-6 lg:px-8">
               <button
-                aria-label="Open menu"
+                aria-label="Mở menu"
                 className="flex size-10 items-center justify-center rounded-md border border-zinc-200 text-zinc-700 dark:border-zinc-800 dark:text-zinc-200 lg:hidden"
                 type="button"
               >
@@ -106,13 +106,13 @@ export function AppShell({
               </button>
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
-                  {subtitle || "Workspace"}
+                  {subtitle || "Không gian làm việc"}
                 </p>
                 <h1 className="truncate text-xl font-semibold">{title}</h1>
               </div>
               <ThemeToggle />
               <button
-                aria-label="Notifications"
+                aria-label="Thông báo"
                 className="flex size-10 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 type="button"
               >

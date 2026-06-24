@@ -42,7 +42,7 @@ export function AuthPanel({ mode }: { mode: Mode }) {
 
       router.push("/groups");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      setError(err instanceof Error ? err.message : "Đã có lỗi xảy ra");
     } finally {
       setLoading(false);
     }
@@ -61,7 +61,7 @@ export function AuthPanel({ mode }: { mode: Mode }) {
           <div>
             <p className="text-lg font-semibold">Tino Expense</p>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              Personal and group spending tracker
+              Theo dõi chi tiêu cá nhân và theo nhóm
             </p>
           </div>
         </div>
@@ -70,19 +70,19 @@ export function AuthPanel({ mode }: { mode: Mode }) {
           <CardBody className="p-5">
             <div className="mb-5">
               <h1 className="text-xl font-semibold">
-                {isRegister ? "Create your account" : "Welcome back"}
+                {isRegister ? "Tạo tài khoản" : "Chào mừng quay lại"}
               </h1>
               <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                 {isRegister
-                  ? "Start tracking shared expenses with your groups."
-                  : "Sign in to continue tracking your groups."}
+                  ? "Bắt đầu theo dõi chi tiêu chung với các nhóm của bạn."
+                  : "Đăng nhập để tiếp tục theo dõi chi tiêu."}
               </p>
             </div>
 
             <form className="space-y-4" onSubmit={handleSubmit}>
               {isRegister ? (
                 <TextField
-                  label="Display name"
+                  label="Tên hiển thị"
                   onChange={(event) => setDisplayName(event.target.value)}
                   placeholder="Minh Nguyen"
                   required
@@ -98,10 +98,10 @@ export function AuthPanel({ mode }: { mode: Mode }) {
                 value={email}
               />
               <TextField
-                label="Password"
+                label="Mật khẩu"
                 minLength={8}
                 onChange={(event) => setPassword(event.target.value)}
-                placeholder="At least 8 characters"
+                placeholder="Tối thiểu 8 ký tự"
                 required
                 type="password"
                 value={password}
@@ -115,20 +115,20 @@ export function AuthPanel({ mode }: { mode: Mode }) {
 
               <Button className="w-full" disabled={loading} type="submit">
                 {loading
-                  ? "Please wait..."
+                  ? "Vui lòng chờ..."
                   : isRegister
-                    ? "Create account"
-                    : "Login"}
+                    ? "Tạo tài khoản"
+                    : "Đăng nhập"}
               </Button>
             </form>
 
             <p className="mt-5 text-center text-sm text-zinc-500 dark:text-zinc-400">
-              {isRegister ? "Already have an account?" : "New to Tino?"}{" "}
+              {isRegister ? "Đã có tài khoản?" : "Chưa có tài khoản?"}{" "}
               <Link
                 className="font-semibold text-zinc-950 underline-offset-4 hover:underline dark:text-zinc-50"
                 href={isRegister ? "/login" : "/register"}
               >
-                {isRegister ? "Login" : "Register"}
+                {isRegister ? "Đăng nhập" : "Đăng ký"}
               </Link>
             </p>
           </CardBody>

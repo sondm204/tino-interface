@@ -30,7 +30,7 @@ export function ThemeToggle() {
 
   return (
     <button
-      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      aria-label={isDark ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"}
       aria-pressed={isDark}
       className="flex h-10 items-center gap-2 rounded-md border border-zinc-200 bg-white px-2 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
       onClick={() => setIsDark((current) => !current)}

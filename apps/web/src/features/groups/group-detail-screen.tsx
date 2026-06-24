@@ -10,6 +10,7 @@ import { EmptyState } from "@/src/components/ui/empty-state";
 import { SelectField, TextAreaField, TextField } from "@/src/components/ui/field";
 import { Badge } from "@/src/components/ui/status";
 import { formatCurrency, formatDate } from "@/src/lib/format";
+import { settlementStatusLabel, splitMethodLabel } from "@/src/lib/labels";
 import { tinoApi } from "@/src/services/tino-api";
 import type { Expense, Group, GroupSummary, User } from "@/src/types/domain";
 
@@ -55,7 +56,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
       setExpenses(expensesResponse.data?.items ?? []);
       setSummary(summaryResponse.data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Cannot load group");
+      setError(err instanceof Error ? err.message : "Không thể tải thông tin nhóm");
     } finally {
       setLoading(false);
     }
@@ -73,7 +74,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
     event.preventDefault();
 
     if (!currentUser) {
-      setError("Please login before creating an expense.");
+      setError("Vui lòng đăng nhập trước khi thêm chi tiêu.");
       return;
     }
 
@@ -109,7 +110,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
       setSplitMethod("equal");
       await loadData(month);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Cannot create expense");
+      setError(err instanceof Error ? err.message : "Không thể tạo chi tiêu");
     } finally {
       setSaving(false);
     }
@@ -125,7 +126,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
       setExpenses((current) => current.filter((expense) => expense.id !== expenseId));
       await loadData(month);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Cannot delete expense");
+      setError(err instanceof Error ? err.message : "Không thể xóa chi tiêu");
     }
   }
 
@@ -139,18 +140,18 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
       action={
         <Button className="hidden sm:inline-flex" form="create-expense-form" type="submit">
           <Plus size={17} />
-          Add expense
+          Thêm chi tiêu
         </Button>
       }
-      subtitle="Group detail"
-      title={group?.name || "Group"}
+      subtitle="Chi tiết nhóm"
+      title={group?.name || "Nhóm"}
     >
       <div className="mb-4">
         <Link
           className="text-sm font-medium text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50"
           href="/groups"
         >
-          Back to groups
+          Quay lại danh sách nhóm
         </Link>
       </div>
 
@@ -165,7 +166,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
           <section className="grid gap-3 md:grid-cols-3">
             <Card className="p-4">
               <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                Expenses this page
+                Chi tiêu đang hiển thị
               </p>
               <p className="mt-3 text-2xl font-semibold">
                 {formatCurrency(totalExpense, group?.currency || "VND")}
@@ -173,7 +174,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
             </Card>
             <Card className="p-4">
               <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                Month total
+                Tổng tháng
               </p>
               <p className="mt-3 text-2xl font-semibold">
                 {formatCurrency(summary?.total_amount || 0, group?.currency || "VND")}
@@ -181,7 +182,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
             </Card>
             <Card className="p-4">
               <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                Settlements
+                Quyết toán
               </p>
               <p className="mt-3 text-2xl font-semibold">
                 {summary?.settlements.length || 0}
@@ -202,30 +203,30 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                   />
                 </div>
               }
-              description="Current group activity from local API"
-              title="Expenses"
+              description="Các khoản chi tiêu hiện tại của nhóm"
+              title="Chi tiêu"
             />
             {loading ? (
               <CardBody>
                 <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  Loading expenses...
+                  Đang tải chi tiêu...
                 </p>
               </CardBody>
             ) : expenses.length === 0 ? (
               <EmptyState
-                description="Add rent, groceries, utilities or any shared payment."
+                description="Thêm tiền nhà, ăn uống, điện nước hoặc bất kỳ khoản chi chung nào."
                 icon={<ReceiptText size={20} />}
-                title="No expenses yet"
+                title="Chưa có khoản chi nào"
               />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[760px] text-left text-sm">
                   <thead>
                     <tr className="border-b border-zinc-200 text-xs uppercase tracking-[0.08em] text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-                      <th className="px-4 py-3 font-semibold">Expense</th>
-                      <th className="px-4 py-3 font-semibold">Date</th>
-                      <th className="px-4 py-3 font-semibold">Split</th>
-                      <th className="px-4 py-3 text-right font-semibold">Amount</th>
+                      <th className="px-4 py-3 font-semibold">Khoản chi</th>
+                      <th className="px-4 py-3 font-semibold">Ngày</th>
+                      <th className="px-4 py-3 font-semibold">Cách chia</th>
+                      <th className="px-4 py-3 text-right font-semibold">Số tiền</th>
                       <th className="px-4 py-3" />
                     </tr>
                   </thead>
@@ -238,21 +239,21 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                         <td className="px-4 py-4">
                           <p className="font-semibold">{expense.title}</p>
                           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                            {expense.description || "No description"}
+                            {expense.description || "Chưa có mô tả"}
                           </p>
                         </td>
                         <td className="px-4 py-4 text-zinc-600 dark:text-zinc-300">
                           {formatDate(expense.expense_date)}
                         </td>
                         <td className="px-4 py-4">
-                          <Badge>{expense.split_method}</Badge>
+                          <Badge>{splitMethodLabel(expense.split_method)}</Badge>
                         </td>
                         <td className="px-4 py-4 text-right font-semibold">
                           {formatCurrency(expense.total_amount, expense.currency)}
                         </td>
                         <td className="px-4 py-4">
                           <button
-                            aria-label="Delete expense"
+                            aria-label="Xóa chi tiêu"
                             className="ml-auto flex size-8 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
                             onClick={() => void handleDeleteExpense(expense.id)}
                             type="button"
@@ -271,8 +272,8 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
           <section className="grid gap-5 xl:grid-cols-2">
             <Card>
               <CardHeader
-                description="Paid minus expected share"
-                title="Member balances"
+                description="Số đã trả trừ đi phần cần chịu"
+                title="Cân bằng thành viên"
               />
               <CardBody className="space-y-3">
                 {summary?.member_balances.length ? (
@@ -285,7 +286,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                         <div>
                           <p className="text-sm font-semibold">{member.user_id}</p>
                           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                            Paid {formatCurrency(member.paid, summary.currency)}
+                            Đã trả {formatCurrency(member.paid, summary.currency)}
                           </p>
                         </div>
                         <p
@@ -302,7 +303,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                   ))
                 ) : (
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    No member balance yet.
+                    Chưa có dữ liệu cân bằng thành viên.
                   </p>
                 )}
               </CardBody>
@@ -310,8 +311,8 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
 
             <Card>
               <CardHeader
-                description="Suggested transfers for the selected month"
-                title="Settlement preview"
+                description="Gợi ý chuyển tiền cho tháng đang chọn"
+                title="Gợi ý quyết toán"
               />
               <CardBody className="space-y-3">
                 {summary?.settlements.length ? (
@@ -323,10 +324,10 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                       <div className="flex items-center justify-between gap-3">
                         <p className="truncate text-sm">
                           <span className="font-semibold">{settlement.from_user_id}</span>{" "}
-                          pays{" "}
+                          trả cho{" "}
                           <span className="font-semibold">{settlement.to_user_id}</span>
                         </p>
-                        <Badge tone="amber">pending</Badge>
+                        <Badge tone="amber">{settlementStatusLabel("pending")}</Badge>
                       </div>
                       <p className="mt-2 text-lg font-semibold">
                         {formatCurrency(settlement.amount, settlement.currency)}
@@ -335,7 +336,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                   ))
                 ) : (
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    No settlement needed for this month.
+                    Tháng này chưa cần quyết toán.
                   </p>
                 )}
               </CardBody>
@@ -345,27 +346,27 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
 
         <Card>
           <CardHeader
-            description="Saved to local API for the selected group"
-            title="Add expense"
+            description="Lưu khoản chi vào nhóm đang chọn"
+            title="Thêm chi tiêu"
           />
           <CardBody>
             <form className="space-y-4" id="create-expense-form" onSubmit={handleCreateExpense}>
               <TextField
-                label="Title"
+                label="Tên khoản chi"
                 onChange={(event) => setTitle(event.target.value)}
-                placeholder="Monthly rent"
+                placeholder="Tiền nhà tháng này"
                 required
                 value={title}
               />
               <TextAreaField
-                label="Description"
+                label="Mô tả"
                 onChange={(event) => setDescription(event.target.value)}
-                placeholder="Optional details"
+                placeholder="Thông tin bổ sung"
                 value={description}
               />
               <div className="grid grid-cols-2 gap-3">
                 <TextField
-                  label="Amount"
+                  label="Số tiền"
                   min="1"
                   onChange={(event) => setAmount(event.target.value)}
                   placeholder="0"
@@ -374,7 +375,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                   value={amount}
                 />
                 <TextField
-                  label="Date"
+                  label="Ngày"
                   onChange={(event) => setExpenseDate(event.target.value)}
                   required
                   type="date"
@@ -382,7 +383,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                 />
               </div>
               <SelectField
-                label="Split method"
+                label="Cách chia"
                 onChange={(event) =>
                   setSplitMethod(
                     event.target.value as "equal" | "amount" | "percentage" | "shares"
@@ -390,14 +391,14 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                 }
                 value={splitMethod}
               >
-                <option value="equal">Equal</option>
-                <option value="amount">Amount</option>
-                <option value="percentage">Percentage</option>
-                <option value="shares">Shares</option>
+                <option value="equal">Chia đều</option>
+                <option value="amount">Theo số tiền</option>
+                <option value="percentage">Theo phần trăm</option>
+                <option value="shares">Theo phần</option>
               </SelectField>
               <Button className="w-full" disabled={saving} type="submit">
                 <Plus size={17} />
-                {saving ? "Saving..." : "Save expense"}
+                {saving ? "Đang lưu..." : "Lưu chi tiêu"}
               </Button>
             </form>
           </CardBody>

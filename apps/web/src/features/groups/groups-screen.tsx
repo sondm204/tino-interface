@@ -10,6 +10,7 @@ import { EmptyState } from "@/src/components/ui/empty-state";
 import { SelectField, TextAreaField, TextField } from "@/src/components/ui/field";
 import { Badge } from "@/src/components/ui/status";
 import { formatCurrency } from "@/src/lib/format";
+import { groupTypeLabel } from "@/src/lib/labels";
 import { tinoApi } from "@/src/services/tino-api";
 import type { Group, User } from "@/src/types/domain";
 
@@ -43,7 +44,7 @@ export function GroupsScreen() {
       setCurrentUser(meResponse.data);
       setGroups(groupsResponse.data?.items ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Cannot load groups");
+      setError(err instanceof Error ? err.message : "Không thể tải danh sách nhóm");
     } finally {
       setLoading(false);
     }
@@ -61,7 +62,7 @@ export function GroupsScreen() {
     event.preventDefault();
 
     if (!currentUser) {
-      setError("Please login before creating a group.");
+      setError("Vui lòng đăng nhập trước khi tạo nhóm.");
       return;
     }
 
@@ -88,7 +89,7 @@ export function GroupsScreen() {
       setType("shared");
       setCurrency("VND");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Cannot create group");
+      setError(err instanceof Error ? err.message : "Không thể tạo nhóm");
     } finally {
       setSaving(false);
     }
@@ -99,30 +100,30 @@ export function GroupsScreen() {
       action={
         <Button className="hidden sm:inline-flex" form="create-group-form" type="submit">
           <Plus size={17} />
-          Create group
+          Tạo nhóm
         </Button>
       }
-      subtitle="Groups"
-      title="Expense groups"
+      subtitle="Nhóm chi tiêu"
+      title="Các nhóm chi tiêu"
     >
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-5">
           <section className="grid gap-3 md:grid-cols-3">
             <Card className="p-4">
               <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                Total groups
+                Tổng số nhóm
               </p>
               <p className="mt-3 text-2xl font-semibold">{totalGroups}</p>
             </Card>
             <Card className="p-4">
               <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                Shared groups
+                Nhóm dùng chung
               </p>
               <p className="mt-3 text-2xl font-semibold">{sharedGroups}</p>
             </Card>
             <Card className="p-4">
               <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                Default currency
+                Tiền tệ mặc định
               </p>
               <p className="mt-3 text-2xl font-semibold">VND</p>
             </Card>
@@ -130,8 +131,8 @@ export function GroupsScreen() {
 
           <Card>
             <CardHeader
-              description="Open a group to manage expenses and settlements."
-              title="Your groups"
+              description="Mở một nhóm để quản lý chi tiêu và khoản cần thanh toán."
+              title="Nhóm của bạn"
             />
             {error ? (
               <p className="mx-4 mt-4 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
@@ -141,14 +142,14 @@ export function GroupsScreen() {
             {loading ? (
               <CardBody>
                 <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  Loading groups...
+                  Đang tải nhóm...
                 </p>
               </CardBody>
             ) : groups.length === 0 ? (
               <EmptyState
-                description="Create your first group for personal, room, or company spending."
+                description="Tạo nhóm đầu tiên cho chi tiêu cá nhân, phòng trọ hoặc công ty."
                 icon={<Users size={20} />}
-                title="No groups yet"
+                title="Chưa có nhóm nào"
               />
             ) : (
               <div className="divide-y divide-zinc-200 dark:divide-zinc-800">
@@ -162,11 +163,11 @@ export function GroupsScreen() {
                       <div className="flex items-center gap-2">
                         <p className="truncate font-semibold">{group.name}</p>
                         <Badge tone={group.type === "shared" ? "blue" : "green"}>
-                          {group.type}
+                          {groupTypeLabel(group.type)}
                         </Badge>
                       </div>
                       <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                        {group.description || "No description"}
+                        {group.description || "Chưa có mô tả"}
                       </p>
                     </div>
                     <div className="text-right">
@@ -184,35 +185,35 @@ export function GroupsScreen() {
 
         <Card>
           <CardHeader
-            description="Groups scope categories, expenses, members and settlements."
-            title="Create group"
+            description="Mỗi nhóm có danh mục, chi tiêu, thành viên và quyết toán riêng."
+            title="Tạo nhóm"
           />
           <CardBody>
             <form className="space-y-4" id="create-group-form" onSubmit={handleCreateGroup}>
               <TextField
-                label="Name"
+                label="Tên nhóm"
                 onChange={(event) => setName(event.target.value)}
-                placeholder="Room 302"
+                placeholder="Phòng 302"
                 required
                 value={name}
               />
               <TextAreaField
-                label="Description"
+                label="Mô tả"
                 onChange={(event) => setDescription(event.target.value)}
-                placeholder="Shared monthly spending"
+                placeholder="Chi tiêu chung hằng tháng"
                 value={description}
               />
               <div className="grid grid-cols-2 gap-3">
                 <SelectField
-                  label="Type"
+                  label="Loại nhóm"
                   onChange={(event) => setType(event.target.value as "personal" | "shared")}
                   value={type}
                 >
-                  <option value="personal">Personal</option>
-                  <option value="shared">Shared</option>
+                  <option value="personal">Cá nhân</option>
+                  <option value="shared">Nhóm</option>
                 </SelectField>
                 <SelectField
-                  label="Currency"
+                  label="Tiền tệ"
                   onChange={(event) => setCurrency(event.target.value as "VND" | "USD")}
                   value={currency}
                 >
@@ -222,7 +223,7 @@ export function GroupsScreen() {
               </div>
               <Button className="w-full" disabled={saving} type="submit">
                 <WalletCards size={17} />
-                {saving ? "Creating..." : "Create group"}
+                {saving ? "Đang tạo..." : "Tạo nhóm"}
               </Button>
             </form>
           </CardBody>
