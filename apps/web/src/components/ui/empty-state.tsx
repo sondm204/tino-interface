@@ -1,4 +1,12 @@
 import type { ReactNode } from "react";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyContent,
+} from "@/components/ui/empty";
 
 export function EmptyState({
   icon,
@@ -12,19 +20,13 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex min-h-56 flex-col items-center justify-center px-4 py-10 text-center">
-      {icon ? (
-        <div className="mb-4 flex size-11 items-center justify-center rounded-lg bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-          {icon}
-        </div>
-      ) : null}
-      <h3 className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">
-        {title}
-      </h3>
-      <p className="mt-1 max-w-sm text-sm text-zinc-500 dark:text-zinc-400">
-        {description}
-      </p>
-      {action ? <div className="mt-4">{action}</div> : null}
-    </div>
+    <Empty className="min-h-56 border-0">
+      <EmptyHeader>
+        {icon ? <EmptyMedia variant="icon">{icon}</EmptyMedia> : null}
+        <EmptyTitle>{title}</EmptyTitle>
+        <EmptyDescription>{description}</EmptyDescription>
+      </EmptyHeader>
+      {action ? <EmptyContent>{action}</EmptyContent> : null}
+    </Empty>
   );
 }

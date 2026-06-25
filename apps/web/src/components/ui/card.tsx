@@ -1,4 +1,11 @@
 import type { ReactNode } from "react";
+import {
+  Card as ShadcnCard,
+  CardContent,
+  CardDescription,
+  CardHeader as ShadcnCardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { cn } from "@/src/lib/cn";
 
 export function Card({
@@ -8,16 +15,7 @@ export function Card({
   children: ReactNode;
   className?: string;
 }) {
-  return (
-    <section
-      className={cn(
-        "rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900",
-        className
-      )}
-    >
-      {children}
-    </section>
-  );
+  return <ShadcnCard className={className}>{children}</ShadcnCard>;
 }
 
 export function CardHeader({
@@ -30,19 +28,17 @@ export function CardHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3 border-b border-zinc-200 p-4 dark:border-zinc-800">
-      <div>
-        <h2 className="text-base font-semibold text-zinc-950 dark:text-zinc-50">
-          {title}
-        </h2>
-        {description ? (
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            {description}
-          </p>
-        ) : null}
+    <ShadcnCardHeader className="border-b pb-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <CardTitle>{title}</CardTitle>
+          {description ? (
+            <CardDescription className="mt-1">{description}</CardDescription>
+          ) : null}
+        </div>
+        {action}
       </div>
-      {action}
-    </div>
+    </ShadcnCardHeader>
   );
 }
 
@@ -53,5 +49,5 @@ export function CardBody({
   children: ReactNode;
   className?: string;
 }) {
-  return <div className={cn("p-4", className)}>{children}</div>;
+  return <CardContent className={cn("pt-0", className)}>{children}</CardContent>;
 }

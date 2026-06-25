@@ -206,20 +206,22 @@ export function GroupsScreen() {
               <div className="grid grid-cols-2 gap-3">
                 <SelectField
                   label="Loại nhóm"
-                  onChange={(event) => setType(event.target.value as "personal" | "shared")}
+                  onValueChange={(value) => setType(value as "personal" | "shared")}
+                  options={[
+                    { value: "personal", label: "Cá nhân" },
+                    { value: "shared", label: "Nhóm" },
+                  ]}
                   value={type}
-                >
-                  <option value="personal">Cá nhân</option>
-                  <option value="shared">Nhóm</option>
-                </SelectField>
+                />
                 <SelectField
                   label="Tiền tệ"
-                  onChange={(event) => setCurrency(event.target.value as "VND" | "USD")}
+                  onValueChange={(value) => setCurrency(value as "VND" | "USD")}
+                  options={[
+                    { value: "VND", label: "VND" },
+                    { value: "USD", label: "USD" },
+                  ]}
                   value={currency}
-                >
-                  <option value="VND">VND</option>
-                  <option value="USD">USD</option>
-                </SelectField>
+                />
               </div>
               <Button className="w-full" disabled={saving} type="submit">
                 <WalletCards size={17} />

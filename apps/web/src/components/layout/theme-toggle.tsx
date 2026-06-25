@@ -2,6 +2,7 @@
 
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Switch } from "@/components/ui/switch";
 
 export function ThemeToggle() {
   const [isMounted, setIsMounted] = useState(false);
@@ -29,18 +30,14 @@ export function ThemeToggle() {
   }, [isDark, isMounted]);
 
   return (
-    <button
-      aria-label={isDark ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"}
-      aria-pressed={isDark}
-      className="flex h-10 items-center gap-2 rounded-md border border-zinc-200 bg-white px-2 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-      onClick={() => setIsDark((current) => !current)}
-      type="button"
-    >
-      <span className="relative flex h-5 w-9 items-center rounded-full bg-zinc-200 p-0.5 transition-colors dark:bg-zinc-700">
-        <span className="flex size-4 items-center justify-center rounded-full bg-white shadow-sm transition-transform dark:translate-x-4 dark:bg-zinc-950">
-          {isMounted && isDark ? <Moon size={11} /> : <Sun size={11} />}
-        </span>
-      </span>
-    </button>
+    <div className="flex h-10 items-center gap-2 rounded-md border border-border bg-background px-2 text-foreground">
+      {isMounted && isDark ? <Moon size={14} /> : <Sun size={14} />}
+      <Switch
+        aria-label={isDark ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"}
+        checked={isDark}
+        onCheckedChange={setIsDark}
+        size="sm"
+      />
+    </div>
   );
 }

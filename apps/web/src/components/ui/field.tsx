@@ -1,25 +1,23 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import type { InputHTMLAttributes, TextareaHTMLAttributes } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/src/lib/cn";
 
-function Label({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
+function FieldLabel({ label }: { label: string }) {
   return (
-    <label className="block">
-      <span className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
-        {label}
-      </span>
-      {children}
-    </label>
+    <Label className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+      {label}
+    </Label>
   );
 }
-
-const controlClass =
-  "mt-1 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-950 outline-none focus:border-zinc-950 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50 dark:placeholder:text-zinc-600 dark:focus:border-zinc-500";
 
 export function TextField({
   label,
@@ -27,27 +25,47 @@ export function TextField({
   ...props
 }: InputHTMLAttributes<HTMLInputElement> & { label: string }) {
   return (
-    <Label label={label}>
-      <input className={cn(controlClass, className)} {...props} />
-    </Label>
+    <div className="space-y-1.5">
+      <FieldLabel label={label} />
+      <Input className={cn("h-10", className)} {...props} />
+    </div>
   );
 }
 
 export function SelectField({
   label,
-  className,
-  children,
-  ...props
-}: SelectHTMLAttributes<HTMLSelectElement> & {
+  value,
+  onValueChange,
+  options,
+}: {
   label: string;
-  children: ReactNode;
+  value: string;
+  onValueChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
 }) {
   return (
-    <Label label={label}>
-      <select className={cn(controlClass, className)} {...props}>
-        {children}
-      </select>
-    </Label>
+    <div className="space-y-1.5">
+      <FieldLabel label={label} />
+      <Select
+        onValueChange={(nextValue) => {
+          if (nextValue) {
+            onValueChange(nextValue);
+          }
+        }}
+        value={value}
+      >
+        <SelectTrigger className="h-10 w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 
@@ -57,15 +75,9 @@ export function TextAreaField({
   ...props
 }: TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string }) {
   return (
-    <Label label={label}>
-      <textarea
-        className={cn(
-          controlClass,
-          "h-auto min-h-20 resize-none py-2",
-          className
-        )}
-        {...props}
-      />
-    </Label>
+    <div className="space-y-1.5">
+      <FieldLabel label={label} />
+      <Textarea className={cn("min-h-20 resize-none", className)} {...props} />
+    </div>
   );
 }

@@ -9,6 +9,14 @@ import { Card, CardBody, CardHeader } from "@/src/components/ui/card";
 import { EmptyState } from "@/src/components/ui/empty-state";
 import { SelectField, TextAreaField, TextField } from "@/src/components/ui/field";
 import { Badge } from "@/src/components/ui/status";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { formatCurrency, formatDate } from "@/src/lib/format";
 import { settlementStatusLabel, splitMethodLabel } from "@/src/lib/labels";
 import { tinoApi } from "@/src/services/tino-api";
@@ -219,52 +227,51 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                 title="Chưa có khoản chi nào"
               />
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-zinc-200 text-xs uppercase tracking-[0.08em] text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-                      <th className="px-4 py-3 font-semibold">Khoản chi</th>
-                      <th className="px-4 py-3 font-semibold">Ngày</th>
-                      <th className="px-4 py-3 font-semibold">Cách chia</th>
-                      <th className="px-4 py-3 text-right font-semibold">Số tiền</th>
-                      <th className="px-4 py-3" />
-                    </tr>
-                  </thead>
-                  <tbody>
+              <div className="px-2 pb-2">
+                <Table className="min-w-[760px]">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Khoản chi</TableHead>
+                      <TableHead>Ngày</TableHead>
+                      <TableHead>Cách chia</TableHead>
+                      <TableHead className="text-right">Số tiền</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {expenses.map((expense) => (
-                      <tr
-                        className="border-b border-zinc-100 last:border-0 dark:border-zinc-800"
-                        key={expense.id}
-                      >
-                        <td className="px-4 py-4">
+                      <TableRow key={expense.id}>
+                        <TableCell>
                           <p className="font-semibold">{expense.title}</p>
                           <p className="text-xs text-zinc-500 dark:text-zinc-400">
                             {expense.description || "Chưa có mô tả"}
                           </p>
-                        </td>
-                        <td className="px-4 py-4 text-zinc-600 dark:text-zinc-300">
+                        </TableCell>
+                        <TableCell className="text-zinc-600 dark:text-zinc-300">
                           {formatDate(expense.expense_date)}
-                        </td>
-                        <td className="px-4 py-4">
+                        </TableCell>
+                        <TableCell>
                           <Badge>{splitMethodLabel(expense.split_method)}</Badge>
-                        </td>
-                        <td className="px-4 py-4 text-right font-semibold">
+                        </TableCell>
+                        <TableCell className="text-right font-semibold">
                           {formatCurrency(expense.total_amount, expense.currency)}
-                        </td>
-                        <td className="px-4 py-4">
-                          <button
+                        </TableCell>
+                        <TableCell>
+                          <Button
                             aria-label="Xóa chi tiêu"
-                            className="ml-auto flex size-8 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                            className="ml-auto"
                             onClick={() => void handleDeleteExpense(expense.id)}
+                            size="icon"
                             type="button"
+                            variant="ghost"
                           >
                             <Trash2 size={16} />
-                          </button>
-                        </td>
-                      </tr>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             )}
           </Card>
@@ -384,18 +391,19 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
               </div>
               <SelectField
                 label="Cách chia"
-                onChange={(event) =>
+                onValueChange={(value) =>
                   setSplitMethod(
-                    event.target.value as "equal" | "amount" | "percentage" | "shares"
+                    value as "equal" | "amount" | "percentage" | "shares"
                   )
                 }
+                options={[
+                  { value: "equal", label: "Chia đều" },
+                  { value: "amount", label: "Theo số tiền" },
+                  { value: "percentage", label: "Theo phần trăm" },
+                  { value: "shares", label: "Theo phần" },
+                ]}
                 value={splitMethod}
-              >
-                <option value="equal">Chia đều</option>
-                <option value="amount">Theo số tiền</option>
-                <option value="percentage">Theo phần trăm</option>
-                <option value="shares">Theo phần</option>
-              </SelectField>
+              />
               <Button className="w-full" disabled={saving} type="submit">
                 <Plus size={17} />
                 {saving ? "Đang lưu..." : "Lưu chi tiêu"}
