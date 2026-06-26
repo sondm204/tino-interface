@@ -57,8 +57,18 @@ export const tinoApi = {
     }),
   listUsers: (page = 1, size = 100) =>
     apiRequest<PageableResponse<User>>(`/api/users?page=${page}&size=${size}`),
-  listGroups: (page = 1, size = 20) =>
-    apiRequest<PageableResponse<Group>>(`/api/groups?page=${page}&size=${size}`),
+  listGroups: (page = 1, size = 20, userId?: string) => {
+    const params = new URLSearchParams({
+      page: String(page),
+      size: String(size),
+    });
+
+    if (userId) {
+      params.set("user_id", userId);
+    }
+
+    return apiRequest<PageableResponse<Group>>(`/api/groups?${params.toString()}`);
+  },
   getGroup: (groupId: string) => apiRequest<Group>(`/api/groups/${groupId}`),
   createGroup: (payload: CreateGroupPayload) =>
     apiRequest<{ group: Group; member: GroupMember }>("/api/groups", {

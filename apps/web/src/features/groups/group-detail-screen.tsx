@@ -11,6 +11,13 @@ import { ConfirmDialog } from "@/src/components/ui/confirm-dialog";
 import { EmptyState } from "@/src/components/ui/empty-state";
 import { SelectField, TextAreaField, TextField } from "@/src/components/ui/field";
 import { Badge } from "@/src/components/ui/status";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -20,6 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatCurrency, formatDate } from "@/src/lib/format";
 import { settlementStatusLabel, splitMethodLabel } from "@/src/lib/labels";
 import { tinoApi } from "@/src/services/tino-api";
@@ -42,14 +50,21 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().slice(0, 10));
   const [splitMethod, setSplitMethod] = useState<"equal" | "amount" | "percentage" | "shares">("equal");
   const [splitValues, setSplitValues] = useState<Record<string, string>>({});
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const totalExpense = useMemo(
-    () => expenses.reduce((sum, expense) => sum + Number(expense.total_amount), 0),
-    [expenses]
-  );
+  const currentUserGroupExpense = useMemo(() => {
+    if (!currentUser || !summary) {
+      return 0;
+    }
+
+    return (
+      summary.member_balances.find((member) => member.user_id === currentUser.id)
+        ?.share ?? 0
+    );
+  }, [currentUser, summary]);
 
   const userNameById = useMemo(() => {
     const entries = users.map((user) => [user.id, user.display_name || user.email] as const);
@@ -65,6 +80,16 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
     (userId: string) => userNameById.get(userId) ?? userId,
     [userNameById]
   );
+
+  const userById = useMemo(() => {
+    const entries = users.map((user) => [user.id, user] as const);
+
+    if (currentUser) {
+      entries.push([currentUser.id, currentUser]);
+    }
+
+    return new Map(entries);
+  }, [currentUser, users]);
 
   const splitMembers = useMemo(() => {
     const memberIds = summary?.member_balances.map((member) => member.user_id) ?? [];
@@ -269,14 +294,70 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
     await loadData(value);
   }
 
+  function getUserInitials(userId: string) {
+    const source = getUserName(userId);
+    const words = source.trim().split(/\s+/).filter(Boolean);
+
+    if (words.length >= 2) {
+      return `${words[0][0]}${words[1][0]}`.toUpperCase();
+    }
+
+    return source.slice(0, 2).toUpperCase();
+  }
+
+  function renderUserAvatar(userId: string) {
+    const user = userById.get(userId);
+    const name = getUserName(userId);
+
+    return (
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <button
+              aria-label={name}
+              className="inline-flex size-8 items-center justify-center overflow-hidden rounded-full border border-zinc-200 bg-zinc-100 text-xs font-semibold text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"
+              type="button"
+            />
+          }
+        >
+          {user?.avatar_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img alt="" className="size-full object-cover" src={user.avatar_url} />
+          ) : (
+            getUserInitials(userId)
+          )}
+        </TooltipTrigger>
+        <TooltipContent>{name}</TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  function getExpenseSplitRows(expense: Expense) {
+    if (expense.splits?.length) {
+      return expense.splits.map((split) => ({
+        userId: split.user_id,
+        amount: Number(split.amount ?? 0),
+        percentage: split.percentage,
+        shares: split.shares,
+      }));
+    }
+
+    if (splitMembers.length === 0) {
+      return [];
+    }
+
+    const equalAmount = Number(expense.total_amount) / splitMembers.length;
+
+    return splitMembers.map((userId) => ({
+      userId,
+      amount: equalAmount,
+      percentage: null,
+      shares: null,
+    }));
+  }
+
   return (
     <AppShell
-      action={
-        <Button className="hidden sm:inline-flex" form="create-expense-form" type="submit">
-          <Plus size={17} />
-          Thêm chi tiêu
-        </Button>
-      }
       subtitle="Chi tiết nhóm"
       title={group?.name || "Nhóm"}
     >
@@ -301,18 +382,6 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
           <section className="grid gap-3 md:grid-cols-3">
             <Card className="p-4">
               <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                Chi tiêu đang hiển thị
-              </p>
-              {loading ? (
-                <Skeleton className="mt-3 h-8 w-28" />
-              ) : (
-                <p className="mt-3 text-2xl font-semibold">
-                  {formatCurrency(totalExpense, group?.currency || "VND")}
-                </p>
-              )}
-            </Card>
-            <Card className="p-4">
-              <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
                 Tổng tháng
               </p>
               {loading ? (
@@ -320,6 +389,18 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
               ) : (
                 <p className="mt-3 text-2xl font-semibold">
                   {formatCurrency(summary?.total_amount || 0, group?.currency || "VND")}
+                </p>
+              )}
+            </Card>
+            <Card className="p-4">
+              <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                Tổng chi tiêu cá nhân
+              </p>
+              {loading ? (
+                <Skeleton className="mt-3 h-8 w-28" />
+              ) : (
+                <p className="mt-3 text-2xl font-semibold">
+                  {formatCurrency(currentUserGroupExpense, group?.currency || "VND")}
                 </p>
               )}
             </Card>
@@ -358,7 +439,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                 <div className="min-w-[760px] divide-y divide-zinc-200 dark:divide-zinc-800">
                   {Array.from({ length: 5 }).map((_, index) => (
                     <div
-                      className="grid grid-cols-[1.6fr_0.8fr_0.8fr_0.8fr_40px] items-center gap-4 px-2 py-4"
+                      className="grid grid-cols-[1.6fr_0.8fr_0.7fr_0.8fr_0.8fr_40px] items-center gap-4 px-2 py-4"
                       key={index}
                     >
                       <div className="space-y-2">
@@ -366,6 +447,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                         <Skeleton className="h-4 w-56" />
                       </div>
                       <Skeleton className="h-4 w-24" />
+                      <Skeleton className="size-8 rounded-full" />
                       <Skeleton className="h-6 w-20 rounded-full" />
                       <Skeleton className="ml-auto h-5 w-24" />
                       <Skeleton className="size-8" />
@@ -386,14 +468,19 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                     <TableRow>
                       <TableHead>Khoản chi</TableHead>
                       <TableHead>Ngày</TableHead>
-                      <TableHead>Cách chia</TableHead>
+                      <TableHead>Người trả</TableHead>
+                      {group?.type === "shared" && <TableHead>Cách chia</TableHead>}
                       <TableHead className="text-right">Số tiền</TableHead>
                       <TableHead />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {expenses.map((expense) => (
-                      <TableRow key={expense.id}>
+                      <TableRow
+                        className="cursor-pointer"
+                        key={expense.id}
+                        onClick={() => setSelectedExpense(expense)}
+                      >
                         <TableCell>
                           <p className="font-semibold">{expense.title}</p>
                           <p className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -404,12 +491,17 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                           {formatDate(expense.expense_date)}
                         </TableCell>
                         <TableCell>
-                          <Badge>{splitMethodLabel(expense.split_method)}</Badge>
+                        {renderUserAvatar(expense.paid_by_user_id)}
                         </TableCell>
+                        {group?.type === "shared" && (
+                          <TableCell className="text-zinc-600 dark:text-zinc-300">
+                            {splitMethodLabel(expense.split_method)}
+                          </TableCell>
+                        )}
                         <TableCell className="text-right font-semibold">
                           {formatCurrency(expense.total_amount, expense.currency)}
                         </TableCell>
-                        <TableCell>
+                        <TableCell onClick={(event) => event.stopPropagation()}>
                           <ConfirmDialog
                             confirmText="Xóa"
                             description={`Khoản chi "${expense.title}" sẽ bị xóa khỏi nhóm.`}
@@ -440,8 +532,8 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
           <section className="grid gap-5 xl:grid-cols-2">
             <Card>
               <CardHeader
-                description="Số đã trả trừ đi phần cần chịu"
-                title="Cân bằng thành viên"
+                description="Tổng số tiền từng thành viên đã thanh toán trong tháng"
+                title="Thành viên đã chi"
               />
               {loading ? (
                 <CardBody className="space-y-3">
@@ -472,24 +564,18 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                           <div>
                             <p className="text-sm font-semibold">{getUserName(member.user_id)}</p>
                             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                              Đã trả {formatCurrency(member.paid, summary.currency)}
+                              Phần cần chịu {formatCurrency(member.share, summary.currency)}
                             </p>
                           </div>
-                          <p
-                            className={
-                              member.balance >= 0
-                                ? "font-semibold text-emerald-700 dark:text-emerald-400"
-                                : "font-semibold text-rose-700 dark:text-rose-400"
-                            }
-                          >
-                            {formatCurrency(member.balance, summary.currency)}
+                          <p className="font-semibold">
+                            {formatCurrency(member.paid, summary.currency)}
                           </p>
                         </div>
                       </div>
                     ))
                   ) : (
                     <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                      Chưa có dữ liệu cân bằng thành viên.
+                      Chưa có dữ liệu chi tiêu của thành viên.
                     </p>
                   )}
                 </CardBody>
@@ -670,6 +756,109 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
           </CardBody>
         </Card>
       </div>
+
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedExpense(null);
+          }
+        }}
+        open={selectedExpense !== null}
+      >
+        <DialogContent className="sm:max-w-xl">
+          {selectedExpense ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>{selectedExpense.title}</DialogTitle>
+                <DialogDescription>
+                  {selectedExpense.description || "Chi tiết khoản chi trong nhóm."}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-md border border-zinc-200 p-3 dark:border-zinc-800">
+                  <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    Người trả
+                  </p>
+                  <div className="mt-2 flex items-center gap-2">
+                    {renderUserAvatar(selectedExpense.paid_by_user_id)}
+                    <p className="text-sm font-semibold">
+                      {getUserName(selectedExpense.paid_by_user_id)}
+                    </p>
+                  </div>
+                </div>
+                <div className="rounded-md border border-zinc-200 p-3 dark:border-zinc-800">
+                  <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    Tổng tiền
+                  </p>
+                  <p className="mt-2 text-lg font-semibold">
+                    {formatCurrency(
+                      selectedExpense.total_amount,
+                      selectedExpense.currency
+                    )}
+                  </p>
+                </div>
+                <div className="rounded-md border border-zinc-200 p-3 dark:border-zinc-800">
+                  <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    Ngày chi
+                  </p>
+                  <p className="mt-2 text-sm font-semibold">
+                    {formatDate(selectedExpense.expense_date)}
+                  </p>
+                </div>
+                <div className="rounded-md border border-zinc-200 p-3 dark:border-zinc-800">
+                  <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    Cách chia
+                  </p>
+                  <p className="mt-2 text-sm font-semibold">
+                    {splitMethodLabel(selectedExpense.split_method)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-semibold">Phần chia</p>
+                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    Số tiền mỗi thành viên chịu cho khoản chi này.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  {getExpenseSplitRows(selectedExpense).map((split) => (
+                    <div
+                      className="flex items-center justify-between gap-3 rounded-md border border-zinc-200 p-3 dark:border-zinc-800"
+                      key={split.userId}
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        {renderUserAvatar(split.userId)}
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold">
+                            {getUserName(split.userId)}
+                          </p>
+                          {selectedExpense.split_method === "percentage" &&
+                          split.percentage ? (
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                              {Number(split.percentage)}%
+                            </p>
+                          ) : null}
+                          {selectedExpense.split_method === "shares" && split.shares ? (
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                              {Number(split.shares)} phần
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                      <p className="shrink-0 text-sm font-semibold">
+                        {formatCurrency(split.amount, selectedExpense.currency)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

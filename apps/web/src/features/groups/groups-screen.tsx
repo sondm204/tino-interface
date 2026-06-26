@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Plus, Users, WalletCards } from "lucide-react";
+import { Users, WalletCards } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/src/components/layout/app-shell";
 import { Button } from "@/src/components/ui/button";
@@ -32,16 +32,32 @@ export function GroupsScreen() {
     () => groups.filter((group) => group.type === "shared").length,
     [groups]
   );
+  const currentUserExpenseByCurrency = useMemo(() => {
+    const totals = groups.reduce<Record<string, number>>((result, group) => {
+      result[group.currency] =
+        (result[group.currency] ?? 0) + Number(group.user_share_amount ?? 0);
+
+      return result;
+    }, {});
+
+    const entries = Object.entries(totals).filter(([, amount]) => amount > 0) as Array<
+      [string, number]
+    >;
+
+    return entries.length > 0 ? entries : ([["VND", 0]] as Array<[string, number]>);
+  }, [groups]);
 
   async function loadData() {
     setError(null);
     setLoading(true);
 
     try {
-      const [meResponse, groupsResponse] = await Promise.all([
-        tinoApi.me().catch(() => ({ data: null })),
-        tinoApi.listGroups(),
-      ]);
+      const meResponse = await tinoApi.me().catch(() => ({ data: null }));
+      const groupsResponse = await tinoApi.listGroups(
+        1,
+        20,
+        meResponse.data?.id
+      );
 
       setCurrentUser(meResponse.data);
       setGroups(groupsResponse.data?.items ?? []);
@@ -107,12 +123,6 @@ export function GroupsScreen() {
 
   return (
     <AppShell
-      action={
-        <Button className="hidden sm:inline-flex" form="create-group-form" type="submit">
-          <Plus size={17} />
-          Tạo nhóm
-        </Button>
-      }
       subtitle="Nhóm chi tiêu"
       title="Các nhóm chi tiêu"
     >
@@ -141,12 +151,16 @@ export function GroupsScreen() {
             </Card>
             <Card className="p-4">
               <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                Tiền tệ mặc định
+                Tổng chi tiêu của bạn
               </p>
               {loading ? (
-                <Skeleton className="mt-3 h-8 w-20" />
+                <Skeleton className="mt-3 h-8 w-28" />
               ) : (
-                <p className="mt-3 text-2xl font-semibold">VND</p>
+                <p className="mt-3 text-xl font-semibold md:text-2xl">
+                  {currentUserExpenseByCurrency
+                    .map(([currency, amount]) => formatCurrency(amount, currency))
+                    .join(" + ")}
+                </p>
               )}
             </Card>
           </section>
@@ -210,7 +224,7 @@ export function GroupsScreen() {
                     <div className="text-right">
                       <p className="text-sm font-semibold">{group.currency}</p>
                       <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {formatCurrency(0, group.currency)}
+                        {formatCurrency(group.total_amount ?? 0, group.currency)}
                       </p>
                     </div>
                   </Link>

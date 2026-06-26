@@ -78,30 +78,35 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<User | null>(() =>
-    getStoredCurrentUser()
-  );
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
-    if (currentUser) {
-      return;
-    }
+    const frameId = window.requestAnimationFrame(() => {
+      const storedUser = getStoredCurrentUser();
 
-    async function loadCurrentUser() {
-      try {
-        const response = await tinoApi.me();
-
-        if (response.data) {
-          setCurrentUser(response.data);
-          setStoredCurrentUser(response.data);
-        }
-      } catch {
-        setCurrentUser(null);
+      if (storedUser) {
+        setCurrentUser(storedUser);
+        return;
       }
-    }
 
-    void loadCurrentUser();
-  }, [currentUser]);
+      async function loadCurrentUser() {
+        try {
+          const response = await tinoApi.me();
+
+          if (response.data) {
+            setCurrentUser(response.data);
+            setStoredCurrentUser(response.data);
+          }
+        } catch {
+          setCurrentUser(null);
+        }
+      }
+
+      void loadCurrentUser();
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, []);
 
   const userInitials = useMemo(() => {
     const source = currentUser?.display_name || currentUser?.email || "TE";

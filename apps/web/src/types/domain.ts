@@ -17,6 +17,8 @@ export type Group = {
   owner_id: string;
   created_at: string;
   updated_at: string | null;
+  total_amount?: number;
+  user_share_amount?: number;
 };
 
 export type GroupMember = {
@@ -50,6 +52,7 @@ export type Expense = {
   created_at: string;
   updated_at: string | null;
   deleted_at: string | null;
+  splits?: ExpenseSplit[];
 };
 
 export type GroupSummary = {
