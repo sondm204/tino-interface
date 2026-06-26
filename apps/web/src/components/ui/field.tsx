@@ -43,6 +43,8 @@ export function SelectField({
   onValueChange: (value: string) => void;
   options: Array<{ value: string; label: string }>;
 }) {
+  const selectedOption = options.find((option) => option.value === value);
+
   return (
     <div className="space-y-1.5">
       <FieldLabel label={label} />
@@ -55,7 +57,7 @@ export function SelectField({
         value={value}
       >
         <SelectTrigger className="h-10 w-full">
-          <SelectValue />
+          <SelectValue>{selectedOption?.label}</SelectValue>
         </SelectTrigger>
         <SelectContent>
           {options.map((option) => (

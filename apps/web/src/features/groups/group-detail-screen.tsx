@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, Plus, ReceiptText, Trash2 } from "lucide-react";
+import { ArrowLeft, CalendarDays, Plus, ReceiptText, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { AppShell } from "@/src/components/layout/app-shell";
 import { Button } from "@/src/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/src/components/ui/card";
+import { ConfirmDialog } from "@/src/components/ui/confirm-dialog";
 import { EmptyState } from "@/src/components/ui/empty-state";
 import { SelectField, TextAreaField, TextField } from "@/src/components/ui/field";
 import { Badge } from "@/src/components/ui/status";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -20,7 +23,7 @@ import {
 import { formatCurrency, formatDate } from "@/src/lib/format";
 import { settlementStatusLabel, splitMethodLabel } from "@/src/lib/labels";
 import { tinoApi } from "@/src/services/tino-api";
-import type { Expense, Group, GroupSummary, User } from "@/src/types/domain";
+import type { Expense, ExpenseSplit, Group, GroupSummary, User } from "@/src/types/domain";
 
 function currentMonth() {
   return new Date().toISOString().slice(0, 7);
@@ -29,6 +32,7 @@ function currentMonth() {
 export function GroupDetailScreen({ groupId }: { groupId: string }) {
   const [group, setGroup] = useState<Group | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [summary, setSummary] = useState<GroupSummary | null>(null);
   const [month, setMonth] = useState(currentMonth());
@@ -37,6 +41,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
   const [amount, setAmount] = useState("");
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().slice(0, 10));
   const [splitMethod, setSplitMethod] = useState<"equal" | "amount" | "percentage" | "shares">("equal");
+  const [splitValues, setSplitValues] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -46,25 +51,134 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
     [expenses]
   );
 
+  const userNameById = useMemo(() => {
+    const entries = users.map((user) => [user.id, user.display_name || user.email] as const);
+
+    if (currentUser) {
+      entries.push([currentUser.id, currentUser.display_name || currentUser.email]);
+    }
+
+    return new Map(entries);
+  }, [currentUser, users]);
+
+  const getUserName = useCallback(
+    (userId: string) => userNameById.get(userId) ?? userId,
+    [userNameById]
+  );
+
+  const splitMembers = useMemo(() => {
+    const memberIds = summary?.member_balances.map((member) => member.user_id) ?? [];
+
+    if (memberIds.length > 0) {
+      return memberIds;
+    }
+
+    return currentUser ? [currentUser.id] : [];
+  }, [currentUser, summary]);
+
+  const splitInputMeta = useMemo(() => {
+    if (splitMethod === "amount") {
+      return { label: "Số tiền", suffix: group?.currency || "VND" };
+    }
+
+    if (splitMethod === "percentage") {
+      return { label: "Phần trăm", suffix: "%" };
+    }
+
+    return { label: "Số phần", suffix: "phần" };
+  }, [group?.currency, splitMethod]);
+
+  const splitValueTotal = useMemo(
+    () =>
+      splitMembers.reduce(
+        (sum, userId) => sum + Number(splitValues[userId] || 0),
+        0
+      ),
+    [splitMembers, splitValues]
+  );
+
+  function buildExpenseSplits(totalAmount: number): ExpenseSplit[] | undefined {
+    if (group?.type !== "shared" || splitMethod === "equal") {
+      return undefined;
+    }
+
+    if (splitMembers.length === 0) {
+      throw new Error("Nhóm chưa có thành viên để chia chi tiêu.");
+    }
+
+    const values = splitMembers.map((userId) => ({
+      userId,
+      value: Number(splitValues[userId] || 0),
+    }));
+
+    if (values.some((item) => !Number.isFinite(item.value) || item.value < 0)) {
+      throw new Error("Giá trị chia tiền phải là số không âm.");
+    }
+
+    if (values.every((item) => item.value === 0)) {
+      throw new Error("Vui lòng nhập giá trị chia cho ít nhất một thành viên.");
+    }
+
+    if (splitMethod === "amount") {
+      const splitTotal = values.reduce((sum, item) => sum + item.value, 0);
+
+      if (Math.abs(splitTotal - totalAmount) > 0.01) {
+        throw new Error("Tổng số tiền chia phải bằng tổng chi tiêu.");
+      }
+
+      return values.map((item) => ({
+        user_id: item.userId,
+        amount: item.value,
+      }));
+    }
+
+    if (splitMethod === "percentage") {
+      const percentageTotal = values.reduce((sum, item) => sum + item.value, 0);
+
+      if (Math.abs(percentageTotal - 100) > 0.01) {
+        throw new Error("Tổng phần trăm phải bằng 100%.");
+      }
+
+      return values.map((item) => ({
+        user_id: item.userId,
+        percentage: item.value,
+        amount: (totalAmount * item.value) / 100,
+      }));
+    }
+
+    const totalShares = values.reduce((sum, item) => sum + item.value, 0);
+
+    return values.map((item) => ({
+      user_id: item.userId,
+      shares: item.value,
+      amount: (totalAmount * item.value) / totalShares,
+    }));
+  }
+
   const loadData = useCallback(async (targetMonth = month) => {
     setError(null);
     setLoading(true);
 
     try {
-      const [meResponse, groupResponse, expensesResponse, summaryResponse] =
+      const [meResponse, usersResponse, groupResponse, expensesResponse, summaryResponse] =
         await Promise.all([
           tinoApi.me().catch(() => ({ data: null })),
+          tinoApi.listUsers(),
           tinoApi.getGroup(groupId),
           tinoApi.listExpenses(groupId),
           tinoApi.getSummary(groupId, targetMonth),
         ]);
 
       setCurrentUser(meResponse.data);
+      setUsers(usersResponse.data?.items ?? []);
       setGroup(groupResponse.data);
       setExpenses(expensesResponse.data?.items ?? []);
       setSummary(summaryResponse.data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể tải thông tin nhóm");
+      const message =
+        err instanceof Error ? err.message : "Không thể tải thông tin nhóm";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -82,7 +196,9 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
     event.preventDefault();
 
     if (!currentUser) {
-      setError("Vui lòng đăng nhập trước khi thêm chi tiêu.");
+      const message = "Vui lòng đăng nhập trước khi thêm chi tiêu.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
@@ -94,15 +210,18 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
     setError(null);
 
     try {
+      const totalAmount = Number(amount);
+      const splits = buildExpenseSplits(totalAmount);
       const response = await tinoApi.createExpense(group.id, {
         title,
         description,
-        total_amount: Number(amount),
+        total_amount: totalAmount,
         currency: group.currency,
         paid_by_user_id: currentUser.id,
         created_by_user_id: currentUser.id,
         expense_date: expenseDate,
         split_method: splitMethod,
+        splits,
       });
 
       const createdExpense = response.data;
@@ -116,9 +235,13 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
       setAmount("");
       setExpenseDate(new Date().toISOString().slice(0, 10));
       setSplitMethod("equal");
+      setSplitValues({});
+      toast.success("Lưu chi tiêu thành công");
       await loadData(month);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể tạo chi tiêu");
+      const message = err instanceof Error ? err.message : "Không thể tạo chi tiêu";
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -132,9 +255,12 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
     try {
       await tinoApi.deleteExpense(group.id, expenseId);
       setExpenses((current) => current.filter((expense) => expense.id !== expenseId));
+      toast.success("Xóa chi tiêu thành công");
       await loadData(month);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể xóa chi tiêu");
+      const message = err instanceof Error ? err.message : "Không thể xóa chi tiêu";
+      setError(message);
+      toast.error(message);
     }
   }
 
@@ -156,9 +282,10 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
     >
       <div className="mb-4">
         <Link
-          className="text-sm font-medium text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50"
+          className="text-sm flex items-center gap-2 font-medium text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50"
           href="/groups"
         >
+          <ArrowLeft size={16} />
           Quay lại danh sách nhóm
         </Link>
       </div>
@@ -176,25 +303,37 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
               <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
                 Chi tiêu đang hiển thị
               </p>
-              <p className="mt-3 text-2xl font-semibold">
-                {formatCurrency(totalExpense, group?.currency || "VND")}
-              </p>
+              {loading ? (
+                <Skeleton className="mt-3 h-8 w-28" />
+              ) : (
+                <p className="mt-3 text-2xl font-semibold">
+                  {formatCurrency(totalExpense, group?.currency || "VND")}
+                </p>
+              )}
             </Card>
             <Card className="p-4">
               <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
                 Tổng tháng
               </p>
-              <p className="mt-3 text-2xl font-semibold">
-                {formatCurrency(summary?.total_amount || 0, group?.currency || "VND")}
-              </p>
+              {loading ? (
+                <Skeleton className="mt-3 h-8 w-28" />
+              ) : (
+                <p className="mt-3 text-2xl font-semibold">
+                  {formatCurrency(summary?.total_amount || 0, group?.currency || "VND")}
+                </p>
+              )}
             </Card>
             <Card className="p-4">
               <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
                 Quyết toán
               </p>
-              <p className="mt-3 text-2xl font-semibold">
-                {summary?.settlements.length || 0}
-              </p>
+              {loading ? (
+                <Skeleton className="mt-3 h-8 w-16" />
+              ) : (
+                <p className="mt-3 text-2xl font-semibold">
+                  {summary?.settlements.length || 0}
+                </p>
+              )}
             </Card>
           </section>
 
@@ -215,11 +354,25 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
               title="Chi tiêu"
             />
             {loading ? (
-              <CardBody>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  Đang tải chi tiêu...
-                </p>
-              </CardBody>
+              <div className="px-2 pb-2">
+                <div className="min-w-[760px] divide-y divide-zinc-200 dark:divide-zinc-800">
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <div
+                      className="grid grid-cols-[1.6fr_0.8fr_0.8fr_0.8fr_40px] items-center gap-4 px-2 py-4"
+                      key={index}
+                    >
+                      <div className="space-y-2">
+                        <Skeleton className="h-5 w-44" />
+                        <Skeleton className="h-4 w-56" />
+                      </div>
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-6 w-20 rounded-full" />
+                      <Skeleton className="ml-auto h-5 w-24" />
+                      <Skeleton className="size-8" />
+                    </div>
+                  ))}
+                </div>
+              </div>
             ) : expenses.length === 0 ? (
               <EmptyState
                 description="Thêm tiền nhà, ăn uống, điện nước hoặc bất kỳ khoản chi chung nào."
@@ -244,7 +397,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                         <TableCell>
                           <p className="font-semibold">{expense.title}</p>
                           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                            {expense.description || "Chưa có mô tả"}
+                            {expense.description || ""}
                           </p>
                         </TableCell>
                         <TableCell className="text-zinc-600 dark:text-zinc-300">
@@ -257,16 +410,24 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                           {formatCurrency(expense.total_amount, expense.currency)}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            aria-label="Xóa chi tiêu"
-                            className="ml-auto"
-                            onClick={() => void handleDeleteExpense(expense.id)}
-                            size="icon"
-                            type="button"
-                            variant="ghost"
-                          >
-                            <Trash2 size={16} />
-                          </Button>
+                          <ConfirmDialog
+                            confirmText="Xóa"
+                            description={`Khoản chi "${expense.title}" sẽ bị xóa khỏi nhóm.`}
+                            destructive
+                            onConfirm={() => handleDeleteExpense(expense.id)}
+                            title="Xóa khoản chi?"
+                            trigger={
+                              <Button
+                                aria-label="Xóa chi tiêu"
+                                className="ml-auto"
+                                size="icon"
+                                type="button"
+                                variant="ghost"
+                              >
+                                <Trash2 size={16} />
+                              </Button>
+                            }
+                          />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -282,38 +443,57 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                 description="Số đã trả trừ đi phần cần chịu"
                 title="Cân bằng thành viên"
               />
-              <CardBody className="space-y-3">
-                {summary?.member_balances.length ? (
-                  summary.member_balances.map((member) => (
+              {loading ? (
+                <CardBody className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, index) => (
                     <div
                       className="rounded-md border border-zinc-200 p-3 dark:border-zinc-800"
-                      key={member.user_id}
+                      key={index}
                     >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-semibold">{member.user_id}</p>
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                            Đã trả {formatCurrency(member.paid, summary.currency)}
-                          </p>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-3 w-24" />
                         </div>
-                        <p
-                          className={
-                            member.balance >= 0
-                              ? "font-semibold text-emerald-700 dark:text-emerald-400"
-                              : "font-semibold text-rose-700 dark:text-rose-400"
-                          }
-                        >
-                          {formatCurrency(member.balance, summary.currency)}
-                        </p>
+                        <Skeleton className="h-5 w-20" />
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    Chưa có dữ liệu cân bằng thành viên.
-                  </p>
-                )}
-              </CardBody>
+                  ))}
+                </CardBody>
+              ) : (
+                <CardBody className="space-y-3">
+                  {summary?.member_balances.length ? (
+                    summary.member_balances.map((member) => (
+                      <div
+                        className="rounded-md border border-zinc-200 p-3 dark:border-zinc-800"
+                        key={member.user_id}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-semibold">{getUserName(member.user_id)}</p>
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                              Đã trả {formatCurrency(member.paid, summary.currency)}
+                            </p>
+                          </div>
+                          <p
+                            className={
+                              member.balance >= 0
+                                ? "font-semibold text-emerald-700 dark:text-emerald-400"
+                                : "font-semibold text-rose-700 dark:text-rose-400"
+                            }
+                          >
+                            {formatCurrency(member.balance, summary.currency)}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                      Chưa có dữ liệu cân bằng thành viên.
+                    </p>
+                  )}
+                </CardBody>
+              )}
             </Card>
 
             <Card>
@@ -321,32 +501,53 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                 description="Gợi ý chuyển tiền cho tháng đang chọn"
                 title="Gợi ý quyết toán"
               />
-              <CardBody className="space-y-3">
-                {summary?.settlements.length ? (
-                  summary.settlements.map((settlement) => (
+              {loading ? (
+                <CardBody className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, index) => (
                     <div
                       className="rounded-md border border-zinc-200 p-3 dark:border-zinc-800"
-                      key={`${settlement.from_user_id}-${settlement.to_user_id}`}
+                      key={index}
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <p className="truncate text-sm">
-                          <span className="font-semibold">{settlement.from_user_id}</span>{" "}
-                          trả cho{" "}
-                          <span className="font-semibold">{settlement.to_user_id}</span>
-                        </p>
-                        <Badge tone="amber">{settlementStatusLabel("pending")}</Badge>
+                        <Skeleton className="h-4 w-44" />
+                        <Skeleton className="h-6 w-20 rounded-full" />
                       </div>
-                      <p className="mt-2 text-lg font-semibold">
-                        {formatCurrency(settlement.amount, settlement.currency)}
-                      </p>
+                      <Skeleton className="mt-3 h-6 w-28" />
                     </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    Tháng này chưa cần quyết toán.
-                  </p>
-                )}
-              </CardBody>
+                  ))}
+                </CardBody>
+              ) : (
+                <CardBody className="space-y-3">
+                  {summary?.settlements.length ? (
+                    summary.settlements.map((settlement) => (
+                      <div
+                        className="rounded-md border border-zinc-200 p-3 dark:border-zinc-800"
+                        key={`${settlement.from_user_id}-${settlement.to_user_id}`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="truncate text-sm">
+                            <span className="font-semibold">
+                              {getUserName(settlement.from_user_id)}
+                            </span>{" "}
+                            trả cho{" "}
+                            <span className="font-semibold">
+                              {getUserName(settlement.to_user_id)}
+                            </span>
+                          </p>
+                          <Badge tone="amber">{settlementStatusLabel("pending")}</Badge>
+                        </div>
+                        <p className="mt-2 text-lg font-semibold">
+                          {formatCurrency(settlement.amount, settlement.currency)}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                      Tháng này chưa cần quyết toán.
+                    </p>
+                  )}
+                </CardBody>
+              )}
             </Card>
           </section>
         </div>
@@ -389,21 +590,78 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                   value={expenseDate}
                 />
               </div>
-              <SelectField
-                label="Cách chia"
-                onValueChange={(value) =>
-                  setSplitMethod(
-                    value as "equal" | "amount" | "percentage" | "shares"
-                  )
-                }
-                options={[
-                  { value: "equal", label: "Chia đều" },
-                  { value: "amount", label: "Theo số tiền" },
-                  { value: "percentage", label: "Theo phần trăm" },
-                  { value: "shares", label: "Theo phần" },
-                ]}
-                value={splitMethod}
-              />
+              {group?.type === "shared" && (
+                <>
+                <SelectField
+                  label="Cách chia"
+                  onValueChange={(value) => {
+                    setSplitMethod(
+                      value as "equal" | "amount" | "percentage" | "shares"
+                    );
+                    setSplitValues({});
+                  }}
+                  options={[
+                    { value: "equal", label: "Chia đều" },
+                    { value: "amount", label: "Theo số tiền" },
+                    { value: "percentage", label: "Theo phần trăm" },
+                    { value: "shares", label: "Theo phần" },
+                  ]}
+                  value={splitMethod}
+                />
+                {splitMethod !== "equal" ? (
+                  <div className="space-y-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+                    <div>
+                      <p className="text-sm font-semibold">
+                        Giá trị chia theo thành viên
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        Nhập {splitInputMeta.label.toLowerCase()} cho từng thành viên.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      {splitMembers.map((userId) => (
+                        <div
+                          className="grid grid-cols-[minmax(0,1fr)_130px] items-center gap-3"
+                          key={userId}
+                        >
+                          <p className="truncate text-sm font-medium">
+                            {getUserName(userId)}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <input
+                              className="h-9 min-w-0 rounded-md border border-zinc-200 bg-white px-3 text-right text-sm outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950"
+                              min="0"
+                              onChange={(event) =>
+                                setSplitValues((current) => ({
+                                  ...current,
+                                  [userId]: event.target.value,
+                                }))
+                              }
+                              placeholder="0"
+                              step="0.01"
+                              type="number"
+                              value={splitValues[userId] ?? ""}
+                            />
+                            <span className="w-10 text-xs text-zinc-500 dark:text-zinc-400">
+                              {splitInputMeta.suffix}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                      Tổng đang nhập:{" "}
+                      <span className="font-medium text-zinc-950 dark:text-zinc-50">
+                        {splitMethod === "amount"
+                          ? formatCurrency(splitValueTotal, group.currency)
+                          : `${splitValueTotal} ${splitInputMeta.suffix}`}
+                      </span>
+                    </p>
+                  </div>
+                ) : null}
+                </>
+              )}
+
               <Button className="w-full" disabled={saving} type="submit">
                 <Plus size={17} />
                 {saving ? "Đang lưu..." : "Lưu chi tiêu"}

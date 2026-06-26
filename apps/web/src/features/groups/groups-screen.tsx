@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Plus, Users, WalletCards } from "lucide-react";
+import { toast } from "sonner";
 import { AppShell } from "@/src/components/layout/app-shell";
 import { Button } from "@/src/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/src/components/ui/card";
 import { EmptyState } from "@/src/components/ui/empty-state";
 import { SelectField, TextAreaField, TextField } from "@/src/components/ui/field";
 import { Badge } from "@/src/components/ui/status";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/src/lib/format";
 import { groupTypeLabel } from "@/src/lib/labels";
 import { tinoApi } from "@/src/services/tino-api";
@@ -44,7 +46,10 @@ export function GroupsScreen() {
       setCurrentUser(meResponse.data);
       setGroups(groupsResponse.data?.items ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể tải danh sách nhóm");
+      const message =
+        err instanceof Error ? err.message : "Không thể tải danh sách nhóm";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -62,7 +67,9 @@ export function GroupsScreen() {
     event.preventDefault();
 
     if (!currentUser) {
-      setError("Vui lòng đăng nhập trước khi tạo nhóm.");
+      const message = "Vui lòng đăng nhập trước khi tạo nhóm.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
@@ -88,8 +95,11 @@ export function GroupsScreen() {
       setDescription("");
       setType("shared");
       setCurrency("VND");
+      toast.success("Tạo nhóm thành công");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể tạo nhóm");
+      const message = err instanceof Error ? err.message : "Không thể tạo nhóm";
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -113,19 +123,31 @@ export function GroupsScreen() {
               <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
                 Tổng số nhóm
               </p>
-              <p className="mt-3 text-2xl font-semibold">{totalGroups}</p>
+              {loading ? (
+                <Skeleton className="mt-3 h-8 w-16" />
+              ) : (
+                <p className="mt-3 text-2xl font-semibold">{totalGroups}</p>
+              )}
             </Card>
             <Card className="p-4">
               <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
                 Nhóm dùng chung
               </p>
-              <p className="mt-3 text-2xl font-semibold">{sharedGroups}</p>
+              {loading ? (
+                <Skeleton className="mt-3 h-8 w-16" />
+              ) : (
+                <p className="mt-3 text-2xl font-semibold">{sharedGroups}</p>
+              )}
             </Card>
             <Card className="p-4">
               <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
                 Tiền tệ mặc định
               </p>
-              <p className="mt-3 text-2xl font-semibold">VND</p>
+              {loading ? (
+                <Skeleton className="mt-3 h-8 w-20" />
+              ) : (
+                <p className="mt-3 text-2xl font-semibold">VND</p>
+              )}
             </Card>
           </section>
 
@@ -140,11 +162,26 @@ export function GroupsScreen() {
               </p>
             ) : null}
             {loading ? (
-              <CardBody>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  Đang tải nhóm...
-                </p>
-              </CardBody>
+              <div className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div
+                    className="flex items-center justify-between gap-4 p-4"
+                    key={index}
+                  >
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-5 w-40" />
+                        <Skeleton className="h-5 w-16 rounded-full" />
+                      </div>
+                      <Skeleton className="h-4 w-2/3" />
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <Skeleton className="h-4 w-12" />
+                      <Skeleton className="h-4 w-20" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : groups.length === 0 ? (
               <EmptyState
                 description="Tạo nhóm đầu tiên cho chi tiêu cá nhân, phòng trọ hoặc công ty."

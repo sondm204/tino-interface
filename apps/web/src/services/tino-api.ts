@@ -55,6 +55,8 @@ export const tinoApi = {
       method: "POST",
       body: JSON.stringify({}),
     }),
+  listUsers: (page = 1, size = 100) =>
+    apiRequest<PageableResponse<User>>(`/api/users?page=${page}&size=${size}`),
   listGroups: (page = 1, size = 20) =>
     apiRequest<PageableResponse<Group>>(`/api/groups?page=${page}&size=${size}`),
   getGroup: (groupId: string) => apiRequest<Group>(`/api/groups/${groupId}`),

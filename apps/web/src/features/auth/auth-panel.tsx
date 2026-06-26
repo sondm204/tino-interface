@@ -8,7 +8,7 @@ import { Button } from "@/src/components/ui/button";
 import { Card, CardBody } from "@/src/components/ui/card";
 import { TextField } from "@/src/components/ui/field";
 import { ThemeToggle } from "@/src/components/layout/theme-toggle";
-import { setAuthToken } from "@/src/lib/api-client";
+import { setAuthToken, setStoredCurrentUser } from "@/src/lib/api-client";
 import { tinoApi } from "@/src/services/tino-api";
 
 type Mode = "login" | "register";
@@ -38,6 +38,10 @@ export function AuthPanel({ mode }: { mode: Mode }) {
 
       if (response.data?.token) {
         setAuthToken(response.data.token);
+      }
+
+      if (response.data?.user) {
+        setStoredCurrentUser(response.data.user);
       }
 
       router.push("/groups");
