@@ -6,10 +6,10 @@ import type { PageableResponse } from "@/src/types/api";
 import type {
   Expense,
   ExpenseSplit,
-  Group,
-  GroupMember,
-  GroupMemberWithUser,
-  GroupSummary,
+  Wallet,
+  WalletMember,
+  WalletMemberWithUser,
+  WalletSummary,
   User,
 } from "@/src/types/domain";
 
@@ -30,7 +30,7 @@ export type AuthPayload = {
   access_token_expires_in: number;
 };
 
-export type CreateGroupPayload = {
+export type CreateWalletPayload = {
   name: string;
   description?: string | null;
   type: "personal" | "shared";
@@ -71,49 +71,49 @@ export const tinoApi = {
       method: "POST",
       body: JSON.stringify({ refresh_token: getRefreshToken() }),
     }),
-  listGroups: (page = 1, size = 20) => {
+  listWallets: (page = 1, size = 20) => {
     const params = new URLSearchParams({
       page: String(page),
       size: String(size),
     });
 
-    return apiRequest<PageableResponse<Group>>(`/api/groups?${params.toString()}`);
+    return apiRequest<PageableResponse<Wallet>>(`/api/wallets?${params.toString()}`);
   },
-  getGroup: (groupId: string) => apiRequest<Group>(`/api/groups/${groupId}`),
-  listGroupMembers: (groupId: string) =>
-    apiRequest<GroupMemberWithUser[]>(`/api/groups/${groupId}/members`),
-  createGroup: (payload: CreateGroupPayload) =>
-    apiRequest<{ group: Group; member: GroupMember }>("/api/groups", {
+  getWallet: (walletId: string) => apiRequest<Wallet>(`/api/wallets/${walletId}`),
+  listWalletMembers: (walletId: string) =>
+    apiRequest<WalletMemberWithUser[]>(`/api/wallets/${walletId}/members`),
+  createWallet: (payload: CreateWalletPayload) =>
+    apiRequest<{ wallet: Wallet; member: WalletMember }>("/api/wallets", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  addGroupMember: (groupId: string, userId: string) =>
-    apiRequest<GroupMember>(`/api/groups/${groupId}/members`, {
+  addWalletMember: (walletId: string, userId: string) =>
+    apiRequest<WalletMember>(`/api/wallets/${walletId}/members`, {
       method: "POST",
       body: JSON.stringify({ user_id: userId }),
     }),
-  getSummary: (groupId: string, month: string) =>
-    apiRequest<GroupSummary>(`/api/groups/${groupId}/summary?month=${month}`),
-  listExpenses: (groupId: string, page = 1, size = 20) =>
+  getSummary: (walletId: string, month: string) =>
+    apiRequest<WalletSummary>(`/api/wallets/${walletId}/summary?month=${month}`),
+  listExpenses: (walletId: string, page = 1, size = 20) =>
     apiRequest<PageableResponse<Expense>>(
-      `/api/groups/${groupId}/expenses?page=${page}&size=${size}`
+      `/api/wallets/${walletId}/expenses?page=${page}&size=${size}`
     ),
-  createExpense: (groupId: string, payload: CreateExpensePayload) =>
-    apiRequest<Expense>(`/api/groups/${groupId}/expenses`, {
+  createExpense: (walletId: string, payload: CreateExpensePayload) =>
+    apiRequest<Expense>(`/api/wallets/${walletId}/expenses`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
   updateExpense: (
-    groupId: string,
+    walletId: string,
     expenseId: string,
     payload: Partial<CreateExpensePayload>
   ) =>
-    apiRequest<Expense>(`/api/groups/${groupId}/expenses/${expenseId}`, {
+    apiRequest<Expense>(`/api/wallets/${walletId}/expenses/${expenseId}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
-  deleteExpense: (groupId: string, expenseId: string) =>
-    apiRequest<{ id: string }>(`/api/groups/${groupId}/expenses/${expenseId}`, {
+  deleteExpense: (walletId: string, expenseId: string) =>
+    apiRequest<{ id: string }>(`/api/wallets/${walletId}/expenses/${expenseId}`, {
       method: "DELETE",
     }),
 };

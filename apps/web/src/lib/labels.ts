@@ -1,4 +1,4 @@
-export function groupTypeLabel(type: string) {
+export function walletTypeLabel(type: string) {
   const labels: Record<string, string> = {
     personal: "Cá nhân",
     shared: "Nhóm",

@@ -2,28 +2,28 @@
 
 ## Product Vision
 
-Tino Interface is a personal and group expense tracking application.
+Tino Interface is a personal and wallet expense tracking application.
 
-The product helps users record expenses across multiple spending contexts, then review monthly totals, member contributions, and settlement suggestions. A user can belong to several groups at the same time, such as:
+The product helps users record expenses across multiple spending contexts, then review monthly totals, member contributions, and settlement suggestions. A user can belong to several wallets at the same time, such as:
 
 - Personal spending: 1 member.
 - Roommate spending: 2 members.
 - Company/team spending: 5 members.
 
-Each group has its own members, expenses, monthly summary, and settlement logic.
+Each wallet has its own members, expenses, monthly summary, and settlement logic.
 
 ## Phase 1 Scope
 
-Phase 1 is a straightforward expense tracking product. The focus is to make expense entry, grouping, and monthly review reliable before adding advanced automation.
+Phase 1 is a straightforward expense tracking product. The focus is to make expense entry, walleting, and monthly review reliable before adding advanced automation.
 
 Phase 1 should support:
 
 - Manual account registration and login.
-- Creating and managing expense groups.
-- Inviting or adding members to a group.
-- Adding expenses inside a group.
-- Seeing each group's expense list.
-- Seeing monthly totals per group.
+- Creating and managing expense wallets.
+- Inviting or adding members to a wallet.
+- Adding expenses inside a wallet.
+- Seeing each wallet's expense list.
+- Seeing monthly totals per wallet.
 - Seeing how much each member paid in a selected month.
 - Seeing a simple split summary for who should reimburse whom.
 
@@ -49,11 +49,11 @@ Expected auth direction:
 
 - Express backend owns registration, login, password hashing, sessions/tokens, and authorization.
 - Web and mobile clients authenticate against the Express API.
-- The backend validates the current user before allowing access to groups, expenses, summaries, or settlements.
+- The backend validates the current user before allowing access to wallets, expenses, summaries, or settlements.
 
-### Group Management
+### Wallet Management
 
-A user can create multiple groups. A group represents one shared spending context.
+A user can create multiple wallets. A wallet represents one shared spending context.
 
 Examples:
 
@@ -61,11 +61,11 @@ Examples:
 - `Room 302`
 - `Company Lunch`
 
-Groups should support:
+Wallets should support:
 
 - Name.
 - Description or note.
-- Type, such as personal, household, company, or another product-defined grouping.
+- Type, such as personal, household, company, or another product-defined walleting.
 - Currency.
 - Owner.
 - Member list.
@@ -73,11 +73,11 @@ Groups should support:
 
 ### Expense Tracking
 
-Every expense belongs to a group and is created by a group member.
+Every expense belongs to a wallet and is created by a wallet member.
 
 An expense should include:
 
-- Group.
+- Wallet.
 - Category.
 - Title and description.
 - Total amount.
@@ -89,13 +89,13 @@ An expense should include:
 - Optional attachment files.
 - Split rows for each participant.
 
-Default split behavior for Phase 1 can be equal split among all active group members. The schema also supports amount, percentage, and shares-based splits through `ExpenseSplit`.
+Default split behavior for Phase 1 can be equal split among all active wallet members. The schema also supports amount, percentage, and shares-based splits through `ExpenseSplit`.
 
 ### Monthly Summary
 
-At the end of each month, a group summary should answer:
+At the end of each month, a wallet summary should answer:
 
-- Total group spending.
+- Total wallet spending.
 - Total paid by each member.
 - Expected share for each member.
 - Difference between paid amount and expected share.
@@ -128,7 +128,7 @@ This is the canonical database model for future implementation. Feature work sho
 - `created_at`
 - `updated_at`
 
-### Group
+### Wallet
 
 - `id`
 - `name`
@@ -139,10 +139,10 @@ This is the canonical database model for future implementation. Feature work sho
 - `created_at`
 - `updated_at`
 
-### Group Member
+### Wallet Member
 
 - `id`
-- `group_id`
+- `wallet_id`
 - `user_id`
 - `role`
 - `status`
@@ -151,7 +151,7 @@ This is the canonical database model for future implementation. Feature work sho
 ### Category
 
 - `id`
-- `group_id`
+- `wallet_id`
 - `name`
 - `color`
 - `icon`
@@ -160,7 +160,7 @@ This is the canonical database model for future implementation. Feature work sho
 ### Expense
 
 - `id`
-- `group_id`
+- `wallet_id`
 - `category_id`
 - `title`
 - `description`
@@ -199,7 +199,7 @@ This is the canonical database model for future implementation. Feature work sho
 ### Settlement
 
 - `id`
-- `group_id`
+- `wallet_id`
 - `from_user_id`
 - `to_user_id`
 - `amount`
@@ -211,7 +211,7 @@ This is the canonical database model for future implementation. Feature work sho
 - `settled_at`
 - `created_at`
 
-Categories are group-scoped through `group_id`. Attachments belong to expenses. Settlements are persisted monthly or per selected period after the summary calculation is generated.
+Categories are wallet-scoped through `wallet_id`. Attachments belong to expenses. Settlements are persisted monthly or per selected period after the summary calculation is generated.
 
 ## Tech Stack
 
@@ -300,8 +300,8 @@ Recommended first screens:
 
 - Login.
 - Register.
-- Group list/dashboard.
-- Group detail with current month expenses.
+- Wallet list/dashboard.
+- Wallet detail with current month expenses.
 - Add expense form.
 - Monthly summary view.
 
@@ -320,7 +320,7 @@ The Express backend should own:
 - Password hashing.
 - Token/session creation.
 - Request authorization.
-- Group/member access checks.
+- Wallet/member access checks.
 - Expense CRUD.
 - Monthly summary and settlement calculations.
 
@@ -332,15 +332,15 @@ Recommended API surface for Phase 1:
 - `POST /auth/login`
 - `POST /auth/logout`
 - `GET /me`
-- `GET /groups`
-- `POST /groups`
-- `GET /groups/:groupId`
-- `POST /groups/:groupId/members`
-- `GET /groups/:groupId/expenses`
-- `POST /groups/:groupId/expenses`
-- `PATCH /groups/:groupId/expenses/:expenseId`
-- `DELETE /groups/:groupId/expenses/:expenseId`
-- `GET /groups/:groupId/summary?month=YYYY-MM`
+- `GET /wallets`
+- `POST /wallets`
+- `GET /wallets/:walletId`
+- `POST /wallets/:walletId/members`
+- `GET /wallets/:walletId/expenses`
+- `POST /wallets/:walletId/expenses`
+- `PATCH /wallets/:walletId/expenses/:expenseId`
+- `DELETE /wallets/:walletId/expenses/:expenseId`
+- `GET /wallets/:walletId/summary?month=YYYY-MM`
 
 ## Supabase Usage
 
@@ -425,8 +425,8 @@ Do not create all shared packages prematurely. Add them when the code actually n
 These decisions are still open and should be confirmed before implementing the related feature:
 
 - Primary currency: VND only, or multi-currency from the start?
-- Group invitation model: invite by email, invite link, or manual member creation?
-- Can non-registered people be temporary group members in Phase 1?
+- Wallet invitation model: invite by email, invite link, or manual member creation?
+- Can non-registered people be temporary wallet members in Phase 1?
 - Split behavior: always equal split in Phase 1, or allow custom split per expense?
 - Auth transport: HTTP-only cookie session or JWT bearer token?
 - Backend location: `apps/api` inside this monorepo, or separate repository?

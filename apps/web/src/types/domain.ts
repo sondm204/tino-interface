@@ -8,7 +8,7 @@ export type User = {
   updated_at: string | null;
 };
 
-export type Group = {
+export type Wallet = {
   id: string;
   name: string;
   description: string | null;
@@ -21,16 +21,16 @@ export type Group = {
   user_share_amount?: number;
 };
 
-export type GroupMember = {
+export type WalletMember = {
   id: string;
-  group_id: string;
+  wallet_id: string;
   user_id: string;
   role: "owner" | "member";
   status: "active" | "inactive";
   joined_at: string;
 };
 
-export type GroupMemberWithUser = GroupMember & {
+export type WalletMemberWithUser = WalletMember & {
   user: Pick<
     User,
     "id" | "email" | "display_name" | "avatar_url" | "status"
@@ -46,7 +46,7 @@ export type ExpenseSplit = {
 
 export type Expense = {
   id: string;
-  group_id: string;
+  wallet_id: string;
   category_id: string | null;
   title: string;
   description: string | null;
@@ -62,8 +62,8 @@ export type Expense = {
   splits?: ExpenseSplit[];
 };
 
-export type GroupSummary = {
-  group: Group;
+export type WalletSummary = {
+  wallet: Wallet;
   period_start: string;
   period_end: string;
   total_amount: number;

@@ -12,50 +12,50 @@ import { SelectField, TextAreaField, TextField } from "@/src/components/ui/field
 import { Badge } from "@/src/components/ui/status";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/src/lib/format";
-import { groupTypeLabel } from "@/src/lib/labels";
+import { walletTypeLabel } from "@/src/lib/labels";
 import { useAppSelector } from "@/src/store/hooks";
 import {
-  useCreateGroupMutation,
-  useGetGroupsQuery,
+  useCreateWalletMutation,
+  useGetWalletsQuery,
 } from "@/src/store/tino-api-slice";
 
-export function GroupsScreen() {
+export function WalletsScreen() {
   const currentUser = useAppSelector((state) => state.auth.user);
   const authHydrated = useAppSelector((state) => state.auth.hydrated);
   const {
-    data: groupsData,
-    error: groupsError,
-    isLoading: groupsLoading,
-  } = useGetGroupsQuery(
+    data: walletsData,
+    error: walletsError,
+    isLoading: walletsLoading,
+  } = useGetWalletsQuery(
     { page: 1, size: 20 },
     { skip: !authHydrated || !currentUser }
   );
-  const [createGroup, createGroupState] = useCreateGroupMutation();
-  const groups = useMemo(() => groupsData?.items ?? [], [groupsData]);
+  const [createWallet, createWalletState] = useCreateWalletMutation();
+  const wallets = useMemo(() => walletsData?.items ?? [], [walletsData]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState<"personal" | "shared">("shared");
   const [currency, setCurrency] = useState<"VND" | "USD">("VND");
   const [formError, setFormError] = useState<string | null>(null);
-  const loading = !authHydrated || groupsLoading;
-  const saving = createGroupState.isLoading;
+  const loading = !authHydrated || walletsLoading;
+  const saving = createWalletState.isLoading;
   const queryError =
-    groupsError &&
-    "message" in groupsError &&
-    typeof groupsError.message === "string"
-      ? groupsError.message
+    walletsError &&
+    "message" in walletsError &&
+    typeof walletsError.message === "string"
+      ? walletsError.message
       : null;
   const error = formError || queryError;
 
-  const totalGroups = groups.length;
-  const sharedGroups = useMemo(
-    () => groups.filter((group) => group.type === "shared").length,
-    [groups]
+  const totalWallets = wallets.length;
+  const sharedWallets = useMemo(
+    () => wallets.filter((wallet) => wallet.type === "shared").length,
+    [wallets]
   );
   const currentUserExpenseByCurrency = useMemo(() => {
-    const totals = groups.reduce<Record<string, number>>((result, group) => {
-      result[group.currency] =
-        (result[group.currency] ?? 0) + Number(group.user_share_amount ?? 0);
+    const totals = wallets.reduce<Record<string, number>>((result, wallet) => {
+      result[wallet.currency] =
+        (result[wallet.currency] ?? 0) + Number(wallet.user_share_amount ?? 0);
 
       return result;
     }, {});
@@ -65,13 +65,13 @@ export function GroupsScreen() {
     >;
 
     return entries.length > 0 ? entries : ([["VND", 0]] as Array<[string, number]>);
-  }, [groups]);
+  }, [wallets]);
 
-  async function handleCreateGroup(event: FormEvent<HTMLFormElement>) {
+  async function handleCreateWallet(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!currentUser) {
-      const message = "Vui lòng đăng nhập trước khi tạo nhóm.";
+      const message = "Vui lòng đăng nhập trước khi tạo ví.";
       setFormError(message);
       toast.error(message);
       return;
@@ -80,7 +80,7 @@ export function GroupsScreen() {
     setFormError(null);
 
     try {
-      await createGroup({
+      await createWallet({
         name,
         description,
         type,
@@ -91,7 +91,7 @@ export function GroupsScreen() {
       setDescription("");
       setType("shared");
       setCurrency("VND");
-      toast.success("Tạo nhóm thành công");
+      toast.success("Tạo ví thành công");
     } catch (err) {
       const message =
         typeof err === "object" &&
@@ -99,7 +99,7 @@ export function GroupsScreen() {
         "message" in err &&
         typeof err.message === "string"
           ? err.message
-          : "Không thể tạo nhóm";
+          : "Không thể tạo ví";
       setFormError(message);
       toast.error(message);
     }
@@ -107,30 +107,30 @@ export function GroupsScreen() {
 
   return (
     <AppShell
-      subtitle="Nhóm chi tiêu"
-      title="Các nhóm chi tiêu"
+      subtitle="Ví chi tiêu"
+      title="Ví của bạn"
     >
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-5">
           <section className="grid gap-3 md:grid-cols-3">
             <Card className="p-4">
               <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                Tổng số nhóm
+                Tổng số ví
               </p>
               {loading ? (
                 <Skeleton className="mt-3 h-8 w-16" />
               ) : (
-                <p className="mt-3 text-2xl font-semibold">{totalGroups}</p>
+                <p className="mt-3 text-2xl font-semibold">{totalWallets}</p>
               )}
             </Card>
             <Card className="p-4">
               <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                Nhóm dùng chung
+                Ví nhóm
               </p>
               {loading ? (
                 <Skeleton className="mt-3 h-8 w-16" />
               ) : (
-                <p className="mt-3 text-2xl font-semibold">{sharedGroups}</p>
+                <p className="mt-3 text-2xl font-semibold">{sharedWallets}</p>
               )}
             </Card>
             <Card className="p-4">
@@ -151,8 +151,8 @@ export function GroupsScreen() {
 
           <Card>
             <CardHeader
-              description="Mở một nhóm để quản lý chi tiêu và khoản cần thanh toán."
-              title="Nhóm của bạn"
+              description="Mở một ví để quản lý chi tiêu và khoản cần thanh toán."
+              title="Danh sách ví"
             />
             {error ? (
               <p className="mx-4 mt-4 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
@@ -180,35 +180,35 @@ export function GroupsScreen() {
                   </div>
                 ))}
               </div>
-            ) : groups.length === 0 ? (
+            ) : wallets.length === 0 ? (
               <EmptyState
-                description="Tạo nhóm đầu tiên cho chi tiêu cá nhân, phòng trọ hoặc công ty."
+                description="Tạo ví đầu tiên cho chi tiêu cá nhân, phòng trọ hoặc công ty."
                 icon={<Users size={20} />}
-                title="Chưa có nhóm nào"
+                title="Chưa có ví nào"
               />
             ) : (
               <div className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                {groups.map((group) => (
+                {wallets.map((wallet) => (
                   <Link
                     className="flex items-center justify-between gap-4 p-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
-                    href={`/groups/${group.id}`}
-                    key={group.id}
+                    href={`/wallets/${wallet.id}`}
+                    key={wallet.id}
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="truncate font-semibold">{group.name}</p>
-                        <Badge tone={group.type === "shared" ? "blue" : "green"}>
-                          {groupTypeLabel(group.type)}
+                        <p className="truncate font-semibold">{wallet.name}</p>
+                        <Badge tone={wallet.type === "shared" ? "blue" : "green"}>
+                          {walletTypeLabel(wallet.type)}
                         </Badge>
                       </div>
                       <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                        {group.description || "Chưa có mô tả"}
+                        {wallet.description || "Chưa có mô tả"}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-semibold">{group.currency}</p>
+                      <p className="text-sm font-semibold">{wallet.currency}</p>
                       <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {formatCurrency(group.total_amount ?? 0, group.currency)}
+                        {formatCurrency(wallet.total_amount ?? 0, wallet.currency)}
                       </p>
                     </div>
                   </Link>
@@ -220,13 +220,13 @@ export function GroupsScreen() {
 
         <Card>
           <CardHeader
-            description="Mỗi nhóm có danh mục, chi tiêu, thành viên và quyết toán riêng."
-            title="Tạo nhóm"
+            description="Mỗi ví có danh mục, chi tiêu, thành viên và quyết toán riêng."
+            title="Tạo ví"
           />
           <CardBody>
-            <form className="space-y-4" id="create-group-form" onSubmit={handleCreateGroup}>
+            <form className="space-y-4" id="create-wallet-form" onSubmit={handleCreateWallet}>
               <TextField
-                label="Tên nhóm"
+                label="Tên ví"
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Phòng 302"
                 required
@@ -240,7 +240,7 @@ export function GroupsScreen() {
               />
               <div className="grid grid-cols-2 gap-3">
                 <SelectField
-                  label="Loại nhóm"
+                  label="Loại ví"
                   onValueChange={(value) => setType(value as "personal" | "shared")}
                   options={[
                     { value: "personal", label: "Cá nhân" },
@@ -260,7 +260,7 @@ export function GroupsScreen() {
               </div>
               <Button className="w-full" disabled={saving} type="submit">
                 <WalletCards size={17} />
-                {saving ? "Đang tạo..." : "Tạo nhóm"}
+                {saving ? "Đang tạo..." : "Tạo ví"}
               </Button>
             </form>
           </CardBody>

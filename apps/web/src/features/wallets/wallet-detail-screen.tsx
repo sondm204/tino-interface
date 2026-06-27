@@ -35,7 +35,7 @@ import {
   useCreateExpenseMutation,
   useDeleteExpenseMutation,
   useGetExpensesQuery,
-  useGetGroupMembersQuery,
+  useGetWalletMembersQuery,
   useGetSummaryQuery,
 } from "@/src/store/tino-api-slice";
 import type { Expense, ExpenseSplit } from "@/src/types/domain";
@@ -44,15 +44,15 @@ function currentMonth() {
   return new Date().toISOString().slice(0, 7);
 }
 
-export function GroupDetailScreen({ groupId }: { groupId: string }) {
+export function WalletDetailScreen({ walletId }: { walletId: string }) {
   const currentUser = useAppSelector((state) => state.auth.user);
   const authHydrated = useAppSelector((state) => state.auth.hydrated);
   const [month, setMonth] = useState(currentMonth());
   const {
-    data: groupMembers,
+    data: walletMembers,
     error: membersError,
     isLoading: membersLoading,
-  } = useGetGroupMembersQuery(groupId, {
+  } = useGetWalletMembersQuery(walletId, {
     skip: !authHydrated || !currentUser,
   });
   const {
@@ -60,7 +60,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
     error: expensesError,
     isLoading: expensesLoading,
   } = useGetExpensesQuery(
-    { groupId, page: 1, size: 20 },
+    { walletId, page: 1, size: 20 },
     { skip: !authHydrated || !currentUser }
   );
   const {
@@ -68,17 +68,17 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
     error: summaryError,
     isLoading: summaryLoading,
   } = useGetSummaryQuery(
-    { groupId, month },
+    { walletId, month },
     { skip: !authHydrated || !currentUser }
   );
   const [createExpense, createExpenseState] = useCreateExpenseMutation();
   const [deleteExpense] = useDeleteExpenseMutation();
   const users = useMemo(
-    () => groupMembers?.map((member) => member.user) ?? [],
-    [groupMembers]
+    () => walletMembers?.map((member) => member.user) ?? [],
+    [walletMembers]
   );
   const expenses = expensesData?.items ?? [];
-  const group = summary?.group ?? null;
+  const wallet = summary?.wallet ?? null;
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
@@ -101,7 +101,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
     !authHydrated || membersLoading || expensesLoading || summaryLoading;
   const saving = createExpenseState.isLoading;
 
-  const currentUserGroupExpense = useMemo(() => {
+  const currentUserWalletExpense = useMemo(() => {
     if (!currentUser || !summary) {
       return 0;
     }
@@ -149,7 +149,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
 
   const splitInputMeta = useMemo(() => {
     if (splitMethod === "amount") {
-      return { label: "Số tiền", suffix: group?.currency || "VND" };
+      return { label: "Số tiền", suffix: wallet?.currency || "VND" };
     }
 
     if (splitMethod === "percentage") {
@@ -157,7 +157,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
     }
 
     return { label: "Số phần", suffix: "phần" };
-  }, [group?.currency, splitMethod]);
+  }, [wallet?.currency, splitMethod]);
 
   const splitValueTotal = useMemo(
     () =>
@@ -169,12 +169,12 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
   );
 
   function buildExpenseSplits(totalAmount: number): ExpenseSplit[] | undefined {
-    if (group?.type !== "shared" || splitMethod === "equal") {
+    if (wallet?.type !== "shared" || splitMethod === "equal") {
       return undefined;
     }
 
     if (splitMembers.length === 0) {
-      throw new Error("Nhóm chưa có thành viên để chia chi tiêu.");
+      throw new Error("Ví chưa có thành viên để chia chi tiêu.");
     }
 
     const values = splitMembers.map((userId) => ({
@@ -236,7 +236,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
       return;
     }
 
-    if (!group) {
+    if (!wallet) {
       return;
     }
 
@@ -246,12 +246,12 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
       const totalAmount = Number(amount);
       const splits = buildExpenseSplits(totalAmount);
       await createExpense({
-        groupId: group.id,
+        walletId: wallet.id,
         payload: {
           title,
           description,
           total_amount: totalAmount,
-          currency: group.currency,
+          currency: wallet.currency,
           paid_by_user_id: currentUser.id,
           expense_date: expenseDate,
           split_method: splitMethod,
@@ -280,12 +280,12 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
   }
 
   async function handleDeleteExpense(expenseId: string) {
-    if (!group) {
+    if (!wallet) {
       return;
     }
 
     try {
-      await deleteExpense({ groupId: group.id, expenseId }).unwrap();
+      await deleteExpense({ walletId: wallet.id, expenseId }).unwrap();
       toast.success("Xóa chi tiêu thành công");
     } catch (err) {
       const message =
@@ -368,16 +368,16 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
 
   return (
     <AppShell
-      subtitle="Chi tiết nhóm"
-      title={group?.name || "Nhóm"}
+      subtitle="Chi tiết ví"
+      title={wallet?.name || "Ví chi tiêu"}
     >
       <div className="mb-4">
         <Link
           className="text-sm flex items-center gap-2 font-medium text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50"
-          href="/groups"
+          href="/wallets"
         >
           <ArrowLeft size={16} />
-          Quay lại danh sách nhóm
+          Quay lại danh sách ví
         </Link>
       </div>
 
@@ -398,7 +398,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                 <Skeleton className="mt-3 h-8 w-28" />
               ) : (
                 <p className="mt-3 text-2xl font-semibold">
-                  {formatCurrency(summary?.total_amount || 0, group?.currency || "VND")}
+                  {formatCurrency(summary?.total_amount || 0, wallet?.currency || "VND")}
                 </p>
               )}
             </Card>
@@ -410,7 +410,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                 <Skeleton className="mt-3 h-8 w-28" />
               ) : (
                 <p className="mt-3 text-2xl font-semibold">
-                  {formatCurrency(currentUserGroupExpense, group?.currency || "VND")}
+                  {formatCurrency(currentUserWalletExpense, wallet?.currency || "VND")}
                 </p>
               )}
             </Card>
@@ -441,7 +441,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                   />
                 </div>
               }
-              description="Các khoản chi tiêu hiện tại của nhóm"
+              description="Các khoản chi tiêu hiện tại của ví"
               title="Chi tiêu"
             />
             {loading ? (
@@ -479,7 +479,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                       <TableHead>Khoản chi</TableHead>
                       <TableHead>Ngày</TableHead>
                       <TableHead>Người trả</TableHead>
-                      {group?.type === "shared" && <TableHead>Cách chia</TableHead>}
+                      {wallet?.type === "shared" && <TableHead>Cách chia</TableHead>}
                       <TableHead className="text-right">Số tiền</TableHead>
                       <TableHead />
                     </TableRow>
@@ -503,7 +503,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                         <TableCell>
                         {renderUserAvatar(expense.paid_by_user_id)}
                         </TableCell>
-                        {group?.type === "shared" && (
+                        {wallet?.type === "shared" && (
                           <TableCell className="text-zinc-600 dark:text-zinc-300">
                             {splitMethodLabel(expense.split_method)}
                           </TableCell>
@@ -514,7 +514,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                         <TableCell onClick={(event) => event.stopPropagation()}>
                           <ConfirmDialog
                             confirmText="Xóa"
-                            description={`Khoản chi "${expense.title}" sẽ bị xóa khỏi nhóm.`}
+                            description={`Khoản chi "${expense.title}" sẽ bị xóa khỏi ví.`}
                             destructive
                             onConfirm={() => handleDeleteExpense(expense.id)}
                             title="Xóa khoản chi?"
@@ -650,7 +650,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
 
         <Card>
           <CardHeader
-            description="Lưu khoản chi vào nhóm đang chọn"
+            description="Lưu khoản chi vào ví đang chọn"
             title="Thêm chi tiêu"
           />
           <CardBody>
@@ -686,7 +686,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                   value={expenseDate}
                 />
               </div>
-              {group?.type === "shared" && (
+              {wallet?.type === "shared" && (
                 <>
                 <SelectField
                   label="Cách chia"
@@ -749,7 +749,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
                       Tổng đang nhập:{" "}
                       <span className="font-medium text-zinc-950 dark:text-zinc-50">
                         {splitMethod === "amount"
-                          ? formatCurrency(splitValueTotal, group.currency)
+                          ? formatCurrency(splitValueTotal, wallet.currency)
                           : `${splitValueTotal} ${splitInputMeta.suffix}`}
                       </span>
                     </p>
@@ -781,7 +781,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
               <DialogHeader>
                 <DialogTitle>{selectedExpense.title}</DialogTitle>
                 <DialogDescription>
-                  {selectedExpense.description || "Chi tiết khoản chi trong nhóm."}
+                  {selectedExpense.description || "Chi tiết khoản chi trong ví."}
                 </DialogDescription>
               </DialogHeader>
 

@@ -63,9 +63,9 @@ const iconModeButtonClass =
   "group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:[&>span]:hidden";
 
 const mainNavItems = [
-  { href: "/groups", label: "Tổng quan", icon: Home, activePath: "/groups" },
-  { href: "/groups", label: "Nhóm chi tiêu", icon: Users, activePath: "/groups" },
-  { href: "/groups", label: "Chi tiêu", icon: ReceiptText },
+  { href: "/wallets", label: "Tổng quan", icon: Home, activePath: "/wallets" },
+  { href: "/wallets", label: "Ví chi tiêu", icon: Users, activePath: "/wallets" },
+  { href: "/wallets", label: "Chi tiêu", icon: ReceiptText },
 ];
 
 const supportNavItems = [

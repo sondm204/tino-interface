@@ -2,17 +2,17 @@ import { createApi, fakeBaseQuery } from "@reduxjs/toolkit/query/react";
 import type { ApiResponse, PageableResponse } from "@/src/types/api";
 import type {
   Expense,
-  Group,
-  GroupMember,
-  GroupMemberWithUser,
-  GroupSummary,
+  Wallet,
+  WalletMember,
+  WalletMemberWithUser,
+  WalletSummary,
   User,
 } from "@/src/types/domain";
 import {
   tinoApi,
   type AuthPayload,
   type CreateExpensePayload,
-  type CreateGroupPayload,
+  type CreateWalletPayload,
   type LoginPayload,
   type RegisterPayload,
 } from "@/src/services/tino-api";
@@ -45,7 +45,7 @@ export const tinoApiSlice = createApi({
   reducerPath: "tinoApi",
   baseQuery: fakeBaseQuery<ApiError>(),
   keepUnusedDataFor: 60 * 60,
-  tagTypes: ["Auth", "Groups", "GroupMembers", "Expenses", "Summary"],
+  tagTypes: ["Auth", "Wallets", "WalletMembers", "Expenses", "Summary"],
   endpoints: (builder) => ({
     login: builder.mutation<AuthPayload, LoginPayload>({
       queryFn: (payload) => runApi(() => tinoApi.login(payload)),
@@ -63,122 +63,122 @@ export const tinoApiSlice = createApi({
       queryFn: () => runApi(() => tinoApi.me()),
       providesTags: ["Auth"],
     }),
-    getGroups: builder.query<
-      PageableResponse<Group>,
+    getWallets: builder.query<
+      PageableResponse<Wallet>,
       { page?: number; size?: number } | void
     >({
       queryFn: (args) =>
-        runApi(() => tinoApi.listGroups(args?.page, args?.size)),
+        runApi(() => tinoApi.listWallets(args?.page, args?.size)),
       providesTags: (result) =>
         result
           ? [
-              ...result.items.map((group) => ({
-                type: "Groups" as const,
-                id: group.id,
+              ...result.items.map((wallet) => ({
+                type: "Wallets" as const,
+                id: wallet.id,
               })),
-              { type: "Groups" as const, id: "LIST" },
+              { type: "Wallets" as const, id: "LIST" },
             ]
-          : [{ type: "Groups" as const, id: "LIST" }],
+          : [{ type: "Wallets" as const, id: "LIST" }],
     }),
-    createGroup: builder.mutation<
-      { group: Group; member: GroupMember },
-      CreateGroupPayload
+    createWallet: builder.mutation<
+      { wallet: Wallet; member: WalletMember },
+      CreateWalletPayload
     >({
-      queryFn: (payload) => runApi(() => tinoApi.createGroup(payload)),
-      invalidatesTags: [{ type: "Groups", id: "LIST" }],
+      queryFn: (payload) => runApi(() => tinoApi.createWallet(payload)),
+      invalidatesTags: [{ type: "Wallets", id: "LIST" }],
     }),
-    addGroupMember: builder.mutation<
-      GroupMember,
-      { groupId: string; userId: string }
+    addWalletMember: builder.mutation<
+      WalletMember,
+      { walletId: string; userId: string }
     >({
-      queryFn: ({ groupId, userId }) =>
-        runApi(() => tinoApi.addGroupMember(groupId, userId)),
-      invalidatesTags: (_result, _error, { groupId }) => [
-        { type: "Groups", id: groupId },
-        { type: "GroupMembers", id: groupId },
-        { type: "Summary", id: groupId },
+      queryFn: ({ walletId, userId }) =>
+        runApi(() => tinoApi.addWalletMember(walletId, userId)),
+      invalidatesTags: (_result, _error, { walletId }) => [
+        { type: "Wallets", id: walletId },
+        { type: "WalletMembers", id: walletId },
+        { type: "Summary", id: walletId },
       ],
     }),
-    getGroupMembers: builder.query<GroupMemberWithUser[], string>({
-      queryFn: (groupId) =>
-        runApi(() => tinoApi.listGroupMembers(groupId)),
-      providesTags: (_result, _error, groupId) => [
-        { type: "GroupMembers", id: groupId },
+    getWalletMembers: builder.query<WalletMemberWithUser[], string>({
+      queryFn: (walletId) =>
+        runApi(() => tinoApi.listWalletMembers(walletId)),
+      providesTags: (_result, _error, walletId) => [
+        { type: "WalletMembers", id: walletId },
       ],
     }),
     getExpenses: builder.query<
       PageableResponse<Expense>,
-      { groupId: string; page?: number; size?: number }
+      { walletId: string; page?: number; size?: number }
     >({
-      queryFn: ({ groupId, page, size }) =>
-        runApi(() => tinoApi.listExpenses(groupId, page, size)),
-      providesTags: (_result, _error, { groupId }) => [
-        { type: "Expenses", id: groupId },
+      queryFn: ({ walletId, page, size }) =>
+        runApi(() => tinoApi.listExpenses(walletId, page, size)),
+      providesTags: (_result, _error, { walletId }) => [
+        { type: "Expenses", id: walletId },
       ],
     }),
     getSummary: builder.query<
-      GroupSummary,
-      { groupId: string; month: string }
+      WalletSummary,
+      { walletId: string; month: string }
     >({
-      queryFn: ({ groupId, month }) =>
-        runApi(() => tinoApi.getSummary(groupId, month)),
-      providesTags: (_result, _error, { groupId, month }) => [
-        { type: "Summary", id: `${groupId}:${month}` },
-        { type: "Summary", id: groupId },
+      queryFn: ({ walletId, month }) =>
+        runApi(() => tinoApi.getSummary(walletId, month)),
+      providesTags: (_result, _error, { walletId, month }) => [
+        { type: "Summary", id: `${walletId}:${month}` },
+        { type: "Summary", id: walletId },
       ],
     }),
     createExpense: builder.mutation<
       Expense,
-      { groupId: string; payload: CreateExpensePayload }
+      { walletId: string; payload: CreateExpensePayload }
     >({
-      queryFn: ({ groupId, payload }) =>
-        runApi(() => tinoApi.createExpense(groupId, payload)),
-      invalidatesTags: (_result, _error, { groupId }) => [
-        { type: "Expenses", id: groupId },
-        { type: "Summary", id: groupId },
-        { type: "Groups", id: "LIST" },
+      queryFn: ({ walletId, payload }) =>
+        runApi(() => tinoApi.createExpense(walletId, payload)),
+      invalidatesTags: (_result, _error, { walletId }) => [
+        { type: "Expenses", id: walletId },
+        { type: "Summary", id: walletId },
+        { type: "Wallets", id: "LIST" },
       ],
     }),
     updateExpense: builder.mutation<
       Expense,
       {
-        groupId: string;
+        walletId: string;
         expenseId: string;
         payload: Partial<CreateExpensePayload>;
       }
     >({
-      queryFn: ({ groupId, expenseId, payload }) =>
-        runApi(() => tinoApi.updateExpense(groupId, expenseId, payload)),
-      invalidatesTags: (_result, _error, { groupId }) => [
-        { type: "Expenses", id: groupId },
-        { type: "Summary", id: groupId },
-        { type: "Groups", id: "LIST" },
+      queryFn: ({ walletId, expenseId, payload }) =>
+        runApi(() => tinoApi.updateExpense(walletId, expenseId, payload)),
+      invalidatesTags: (_result, _error, { walletId }) => [
+        { type: "Expenses", id: walletId },
+        { type: "Summary", id: walletId },
+        { type: "Wallets", id: "LIST" },
       ],
     }),
     deleteExpense: builder.mutation<
       { id: string },
-      { groupId: string; expenseId: string }
+      { walletId: string; expenseId: string }
     >({
-      queryFn: ({ groupId, expenseId }) =>
-        runApi(() => tinoApi.deleteExpense(groupId, expenseId)),
-      invalidatesTags: (_result, _error, { groupId }) => [
-        { type: "Expenses", id: groupId },
-        { type: "Summary", id: groupId },
-        { type: "Groups", id: "LIST" },
+      queryFn: ({ walletId, expenseId }) =>
+        runApi(() => tinoApi.deleteExpense(walletId, expenseId)),
+      invalidatesTags: (_result, _error, { walletId }) => [
+        { type: "Expenses", id: walletId },
+        { type: "Summary", id: walletId },
+        { type: "Wallets", id: "LIST" },
       ],
     }),
   }),
 });
 
 export const {
-  useAddGroupMemberMutation,
+  useAddWalletMemberMutation,
   useCreateExpenseMutation,
-  useCreateGroupMutation,
+  useCreateWalletMutation,
   useDeleteExpenseMutation,
   useGetCurrentUserQuery,
   useGetExpensesQuery,
-  useGetGroupMembersQuery,
-  useGetGroupsQuery,
+  useGetWalletMembersQuery,
+  useGetWalletsQuery,
   useGetSummaryQuery,
   useLoginMutation,
   useLogoutMutation,

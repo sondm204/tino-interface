@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Tino Expense",
-  description: "Theo dõi chi tiêu cá nhân và theo nhóm",
+  description: "Theo dõi ví chi tiêu cá nhân và nhóm",
 };
 
 const themeScript = `

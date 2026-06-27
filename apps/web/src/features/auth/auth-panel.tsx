@@ -38,7 +38,7 @@ export function AuthPanel({ mode }: { mode: Mode }) {
 
   useEffect(() => {
     if (authHydrated && currentUser) {
-      router.replace("/groups");
+      router.replace("/wallets");
     }
   }, [authHydrated, currentUser, router]);
 
@@ -60,7 +60,7 @@ export function AuthPanel({ mode }: { mode: Mode }) {
       setStoredCurrentUser(response.user);
       dispatch(setCurrentUser(response.user));
 
-      router.push("/groups");
+      router.push("/wallets");
     } catch (err) {
       setError(
         typeof err === "object" &&
@@ -86,7 +86,7 @@ export function AuthPanel({ mode }: { mode: Mode }) {
           <div>
             <p className="text-lg font-semibold">Tino Expense</p>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              Theo dõi chi tiêu cá nhân và theo nhóm
+              Quản lý ví chi tiêu cá nhân và dùng chung
             </p>
           </div>
         </div>
@@ -99,7 +99,7 @@ export function AuthPanel({ mode }: { mode: Mode }) {
               </h1>
               <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                 {isRegister
-                  ? "Bắt đầu theo dõi chi tiêu chung với các nhóm của bạn."
+                  ? "Bắt đầu quản lý các ví chi tiêu của bạn."
                   : "Đăng nhập để tiếp tục theo dõi chi tiêu."}
               </p>
             </div>
