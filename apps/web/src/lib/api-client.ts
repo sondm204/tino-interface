@@ -5,6 +5,15 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000";
 const AUTH_TOKEN_KEY = "tino-auth-token";
 const CURRENT_USER_KEY = "tino-current-user";
+const GET_CACHE_TTL_MS = 5_000;
+
+type CachedResponse = {
+  expiresAt: number;
+  value: ApiResponse<unknown>;
+};
+
+const getResponseCache = new Map<string, CachedResponse>();
+const pendingGetRequests = new Map<string, Promise<ApiResponse<unknown>>>();
 
 export function getAuthToken() {
   if (typeof window === "undefined") {
@@ -15,6 +24,8 @@ export function getAuthToken() {
 }
 
 export function setAuthToken(token: string) {
+  getResponseCache.clear();
+  pendingGetRequests.clear();
   window.localStorage.setItem(AUTH_TOKEN_KEY, token);
 }
 
@@ -44,21 +55,15 @@ export function setStoredCurrentUser(user: User) {
 export function clearAuthToken() {
   window.localStorage.removeItem(AUTH_TOKEN_KEY);
   window.localStorage.removeItem(CURRENT_USER_KEY);
+  getResponseCache.clear();
+  pendingGetRequests.clear();
 }
 
-export async function apiRequest<T>(
+async function executeRequest<T>(
   path: string,
-  init: RequestInit = {}
+  init: RequestInit,
+  headers: Headers
 ): Promise<ApiResponse<T>> {
-  const token = getAuthToken();
-  const headers = new Headers(init.headers);
-
-  headers.set("Content-Type", "application/json");
-
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
-
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers,
@@ -70,4 +75,58 @@ export async function apiRequest<T>(
   }
 
   return payload;
+}
+
+export async function apiRequest<T>(
+  path: string,
+  init: RequestInit = {}
+): Promise<ApiResponse<T>> {
+  const token = getAuthToken();
+  const method = (init.method || "GET").toUpperCase();
+  const headers = new Headers(init.headers);
+
+  headers.set("Content-Type", "application/json");
+
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  if (method !== "GET") {
+    const response = await executeRequest<T>(path, init, headers);
+    getResponseCache.clear();
+    pendingGetRequests.clear();
+    return response;
+  }
+
+  const cacheKey = `${token || "anonymous"}:${path}`;
+  const cached = getResponseCache.get(cacheKey);
+
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value as ApiResponse<T>;
+  }
+
+  if (cached) {
+    getResponseCache.delete(cacheKey);
+  }
+
+  const pending = pendingGetRequests.get(cacheKey);
+
+  if (pending) {
+    return pending as Promise<ApiResponse<T>>;
+  }
+
+  const request = executeRequest<T>(path, init, headers)
+    .then((response) => {
+      getResponseCache.set(cacheKey, {
+        expiresAt: Date.now() + GET_CACHE_TTL_MS,
+        value: response,
+      });
+      return response;
+    })
+    .finally(() => {
+      pendingGetRequests.delete(cacheKey);
+    });
+
+  pendingGetRequests.set(cacheKey, request);
+  return request;
 }

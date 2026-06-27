@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useMemo, useState } from "react";
 import { ArrowLeft, CalendarDays, Plus, ReceiptText, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/src/components/layout/app-shell";
@@ -30,20 +30,50 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatCurrency, formatDate } from "@/src/lib/format";
 import { settlementStatusLabel, splitMethodLabel } from "@/src/lib/labels";
-import { tinoApi } from "@/src/services/tino-api";
-import type { Expense, ExpenseSplit, Group, GroupSummary, User } from "@/src/types/domain";
+import { useAppSelector } from "@/src/store/hooks";
+import {
+  useCreateExpenseMutation,
+  useDeleteExpenseMutation,
+  useGetExpensesQuery,
+  useGetSummaryQuery,
+  useGetUsersQuery,
+} from "@/src/store/tino-api-slice";
+import type { Expense, ExpenseSplit } from "@/src/types/domain";
 
 function currentMonth() {
   return new Date().toISOString().slice(0, 7);
 }
 
 export function GroupDetailScreen({ groupId }: { groupId: string }) {
-  const [group, setGroup] = useState<Group | null>(null);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [users, setUsers] = useState<User[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [summary, setSummary] = useState<GroupSummary | null>(null);
+  const currentUser = useAppSelector((state) => state.auth.user);
+  const authHydrated = useAppSelector((state) => state.auth.hydrated);
   const [month, setMonth] = useState(currentMonth());
+  const {
+    data: usersData,
+    error: usersError,
+    isLoading: usersLoading,
+  } = useGetUsersQuery(undefined, { skip: !authHydrated });
+  const {
+    data: expensesData,
+    error: expensesError,
+    isLoading: expensesLoading,
+  } = useGetExpensesQuery(
+    { groupId, page: 1, size: 20 },
+    { skip: !authHydrated }
+  );
+  const {
+    data: summary,
+    error: summaryError,
+    isLoading: summaryLoading,
+  } = useGetSummaryQuery(
+    { groupId, month },
+    { skip: !authHydrated }
+  );
+  const [createExpense, createExpenseState] = useCreateExpenseMutation();
+  const [deleteExpense] = useDeleteExpenseMutation();
+  const users = useMemo(() => usersData?.items ?? [], [usersData]);
+  const expenses = expensesData?.items ?? [];
+  const group = summary?.group ?? null;
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
@@ -51,9 +81,20 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
   const [splitMethod, setSplitMethod] = useState<"equal" | "amount" | "percentage" | "shares">("equal");
   const [splitValues, setSplitValues] = useState<Record<string, string>>({});
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const queryError = [usersError, expensesError, summaryError]
+    .map((error) =>
+      error &&
+      "message" in error &&
+      typeof error.message === "string"
+        ? error.message
+        : null
+    )
+    .find(Boolean);
+  const error = formError || queryError || null;
+  const loading =
+    !authHydrated || usersLoading || expensesLoading || summaryLoading;
+  const saving = createExpenseState.isLoading;
 
   const currentUserGroupExpense = useMemo(() => {
     if (!currentUser || !summary) {
@@ -180,49 +221,12 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
     }));
   }
 
-  const loadData = useCallback(async (targetMonth = month) => {
-    setError(null);
-    setLoading(true);
-
-    try {
-      const [meResponse, usersResponse, groupResponse, expensesResponse, summaryResponse] =
-        await Promise.all([
-          tinoApi.me().catch(() => ({ data: null })),
-          tinoApi.listUsers(),
-          tinoApi.getGroup(groupId),
-          tinoApi.listExpenses(groupId),
-          tinoApi.getSummary(groupId, targetMonth),
-        ]);
-
-      setCurrentUser(meResponse.data);
-      setUsers(usersResponse.data?.items ?? []);
-      setGroup(groupResponse.data);
-      setExpenses(expensesResponse.data?.items ?? []);
-      setSummary(summaryResponse.data);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Không thể tải thông tin nhóm";
-      setError(message);
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [groupId, month]);
-
-  useEffect(() => {
-    async function run() {
-      await loadData();
-    }
-
-    void run();
-  }, [loadData]);
-
   async function handleCreateExpense(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!currentUser) {
       const message = "Vui lòng đăng nhập trước khi thêm chi tiêu.";
-      setError(message);
+      setFormError(message);
       toast.error(message);
       return;
     }
@@ -231,29 +235,25 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
       return;
     }
 
-    setSaving(true);
-    setError(null);
+    setFormError(null);
 
     try {
       const totalAmount = Number(amount);
       const splits = buildExpenseSplits(totalAmount);
-      const response = await tinoApi.createExpense(group.id, {
-        title,
-        description,
-        total_amount: totalAmount,
-        currency: group.currency,
-        paid_by_user_id: currentUser.id,
-        created_by_user_id: currentUser.id,
-        expense_date: expenseDate,
-        split_method: splitMethod,
-        splits,
-      });
-
-      const createdExpense = response.data;
-
-      if (createdExpense) {
-        setExpenses((current) => [createdExpense, ...current]);
-      }
+      await createExpense({
+        groupId: group.id,
+        payload: {
+          title,
+          description,
+          total_amount: totalAmount,
+          currency: group.currency,
+          paid_by_user_id: currentUser.id,
+          created_by_user_id: currentUser.id,
+          expense_date: expenseDate,
+          split_method: splitMethod,
+          splits,
+        },
+      }).unwrap();
 
       setTitle("");
       setDescription("");
@@ -262,13 +262,16 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
       setSplitMethod("equal");
       setSplitValues({});
       toast.success("Lưu chi tiêu thành công");
-      await loadData(month);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Không thể tạo chi tiêu";
-      setError(message);
+      const message =
+        typeof err === "object" &&
+        err !== null &&
+        "message" in err &&
+        typeof err.message === "string"
+          ? err.message
+          : "Không thể tạo chi tiêu";
+      setFormError(message);
       toast.error(message);
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -278,20 +281,23 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
     }
 
     try {
-      await tinoApi.deleteExpense(group.id, expenseId);
-      setExpenses((current) => current.filter((expense) => expense.id !== expenseId));
+      await deleteExpense({ groupId: group.id, expenseId }).unwrap();
       toast.success("Xóa chi tiêu thành công");
-      await loadData(month);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Không thể xóa chi tiêu";
-      setError(message);
+      const message =
+        typeof err === "object" &&
+        err !== null &&
+        "message" in err &&
+        typeof err.message === "string"
+          ? err.message
+          : "Không thể xóa chi tiêu";
+      setFormError(message);
       toast.error(message);
     }
   }
 
-  async function handleMonthChange(value: string) {
+  function handleMonthChange(value: string) {
     setMonth(value);
-    await loadData(value);
   }
 
   function getUserInitials(userId: string) {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { Users, WalletCards } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/src/components/layout/app-shell";
@@ -13,19 +13,39 @@ import { Badge } from "@/src/components/ui/status";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/src/lib/format";
 import { groupTypeLabel } from "@/src/lib/labels";
-import { tinoApi } from "@/src/services/tino-api";
-import type { Group, User } from "@/src/types/domain";
+import { useAppSelector } from "@/src/store/hooks";
+import {
+  useCreateGroupMutation,
+  useGetGroupsQuery,
+} from "@/src/store/tino-api-slice";
 
 export function GroupsScreen() {
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const currentUser = useAppSelector((state) => state.auth.user);
+  const authHydrated = useAppSelector((state) => state.auth.hydrated);
+  const {
+    data: groupsData,
+    error: groupsError,
+    isLoading: groupsLoading,
+  } = useGetGroupsQuery(
+    { page: 1, size: 20, userId: currentUser?.id },
+    { skip: !authHydrated }
+  );
+  const [createGroup, createGroupState] = useCreateGroupMutation();
+  const groups = useMemo(() => groupsData?.items ?? [], [groupsData]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState<"personal" | "shared">("shared");
   const [currency, setCurrency] = useState<"VND" | "USD">("VND");
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const loading = !authHydrated || groupsLoading;
+  const saving = createGroupState.isLoading;
+  const queryError =
+    groupsError &&
+    "message" in groupsError &&
+    typeof groupsError.message === "string"
+      ? groupsError.message
+      : null;
+  const error = formError || queryError;
 
   const totalGroups = groups.length;
   const sharedGroups = useMemo(
@@ -47,65 +67,26 @@ export function GroupsScreen() {
     return entries.length > 0 ? entries : ([["VND", 0]] as Array<[string, number]>);
   }, [groups]);
 
-  async function loadData() {
-    setError(null);
-    setLoading(true);
-
-    try {
-      const meResponse = await tinoApi.me().catch(() => ({ data: null }));
-      const groupsResponse = await tinoApi.listGroups(
-        1,
-        20,
-        meResponse.data?.id
-      );
-
-      setCurrentUser(meResponse.data);
-      setGroups(groupsResponse.data?.items ?? []);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Không thể tải danh sách nhóm";
-      setError(message);
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    async function run() {
-      await loadData();
-    }
-
-    void run();
-  }, []);
-
   async function handleCreateGroup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!currentUser) {
       const message = "Vui lòng đăng nhập trước khi tạo nhóm.";
-      setError(message);
+      setFormError(message);
       toast.error(message);
       return;
     }
 
-    setSaving(true);
-    setError(null);
+    setFormError(null);
 
     try {
-      const response = await tinoApi.createGroup({
+      await createGroup({
         name,
         description,
         type,
         currency,
         owner_id: currentUser.id,
-      });
-
-      const createdGroup = response.data?.group;
-
-      if (createdGroup) {
-        setGroups((current) => [createdGroup, ...current]);
-      }
+      }).unwrap();
 
       setName("");
       setDescription("");
@@ -113,11 +94,15 @@ export function GroupsScreen() {
       setCurrency("VND");
       toast.success("Tạo nhóm thành công");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Không thể tạo nhóm";
-      setError(message);
+      const message =
+        typeof err === "object" &&
+        err !== null &&
+        "message" in err &&
+        typeof err.message === "string"
+          ? err.message
+          : "Không thể tạo nhóm";
+      setFormError(message);
       toast.error(message);
-    } finally {
-      setSaving(false);
     }
   }
 

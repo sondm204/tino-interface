@@ -15,17 +15,25 @@ import {
   WalletCards,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { ThemeToggle } from "@/src/components/layout/theme-toggle";
 import { Button } from "@/src/components/ui/button";
 import { ConfirmDialog } from "@/src/components/ui/confirm-dialog";
 import {
   clearAuthToken,
-  getStoredCurrentUser,
+  getAuthToken,
   setStoredCurrentUser,
 } from "@/src/lib/api-client";
-import { tinoApi } from "@/src/services/tino-api";
-import type { User } from "@/src/types/domain";
+import {
+  clearCurrentUser,
+  setCurrentUser,
+} from "@/src/store/auth-slice";
+import { useAppDispatch, useAppSelector } from "@/src/store/hooks";
+import {
+  tinoApiSlice,
+  useGetCurrentUserQuery,
+  useLogoutMutation,
+} from "@/src/store/tino-api-slice";
 import {
   Popover,
   PopoverContent,
@@ -78,35 +86,24 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const dispatch = useAppDispatch();
+  const currentUser = useAppSelector((state) => state.auth.user);
+  const authHydrated = useAppSelector((state) => state.auth.hydrated);
+  const [logout] = useLogoutMutation();
+  const shouldLoadCurrentUser =
+    authHydrated && !currentUser && Boolean(getAuthToken());
+  const { data: fetchedCurrentUser } = useGetCurrentUserQuery(undefined, {
+    skip: !shouldLoadCurrentUser,
+  });
 
   useEffect(() => {
-    const frameId = window.requestAnimationFrame(() => {
-      const storedUser = getStoredCurrentUser();
+    if (!fetchedCurrentUser) {
+      return;
+    }
 
-      if (storedUser) {
-        setCurrentUser(storedUser);
-        return;
-      }
-
-      async function loadCurrentUser() {
-        try {
-          const response = await tinoApi.me();
-
-          if (response.data) {
-            setCurrentUser(response.data);
-            setStoredCurrentUser(response.data);
-          }
-        } catch {
-          setCurrentUser(null);
-        }
-      }
-
-      void loadCurrentUser();
-    });
-
-    return () => window.cancelAnimationFrame(frameId);
-  }, []);
+    dispatch(setCurrentUser(fetchedCurrentUser));
+    setStoredCurrentUser(fetchedCurrentUser);
+  }, [dispatch, fetchedCurrentUser]);
 
   const userInitials = useMemo(() => {
     const source = currentUser?.display_name || currentUser?.email || "TE";
@@ -121,12 +118,14 @@ export function AppShell({
 
   async function handleLogout() {
     try {
-      await tinoApi.logout();
+      await logout().unwrap();
     } catch {
       // Local session is cleared even if the backend token revoke fails.
     }
 
     clearAuthToken();
+    dispatch(clearCurrentUser());
+    dispatch(tinoApiSlice.util.resetApiState());
     router.push("/login");
   }
 

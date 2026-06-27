@@ -9,46 +9,54 @@ import { Card, CardBody } from "@/src/components/ui/card";
 import { TextField } from "@/src/components/ui/field";
 import { ThemeToggle } from "@/src/components/layout/theme-toggle";
 import { setAuthToken, setStoredCurrentUser } from "@/src/lib/api-client";
-import { tinoApi } from "@/src/services/tino-api";
+import { setCurrentUser } from "@/src/store/auth-slice";
+import { useAppDispatch } from "@/src/store/hooks";
+import {
+  useLoginMutation,
+  useRegisterMutation,
+} from "@/src/store/tino-api-slice";
 
 type Mode = "login" | "register";
 
 export function AuthPanel({ mode }: { mode: Mode }) {
   const router = useRouter();
+  const dispatch = useAppDispatch();
+  const [login, loginState] = useLoginMutation();
+  const [register, registerState] = useRegisterMutation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const isRegister = mode === "register";
+  const loading = loginState.isLoading || registerState.isLoading;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    setLoading(true);
 
     try {
       const response = isRegister
-        ? await tinoApi.register({
+        ? await register({
             email,
             password,
             display_name: displayName,
-          })
-        : await tinoApi.login({ email, password });
+          }).unwrap()
+        : await login({ email, password }).unwrap();
 
-      if (response.data?.token) {
-        setAuthToken(response.data.token);
-      }
-
-      if (response.data?.user) {
-        setStoredCurrentUser(response.data.user);
-      }
+      setAuthToken(response.token);
+      setStoredCurrentUser(response.user);
+      dispatch(setCurrentUser(response.user));
 
       router.push("/groups");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Đã có lỗi xảy ra");
-    } finally {
-      setLoading(false);
+      setError(
+        typeof err === "object" &&
+          err !== null &&
+          "message" in err &&
+          typeof err.message === "string"
+          ? err.message
+          : "Đã có lỗi xảy ra"
+      );
     }
   }
 
