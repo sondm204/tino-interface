@@ -1,6 +1,17 @@
-import { apiRequest } from "@/src/lib/api-client";
+import {
+  apiRequest,
+  getRefreshToken,
+} from "@/src/lib/api-client";
 import type { PageableResponse } from "@/src/types/api";
-import type { Expense, ExpenseSplit, Group, GroupMember, GroupSummary, User } from "@/src/types/domain";
+import type {
+  Expense,
+  ExpenseSplit,
+  Group,
+  GroupMember,
+  GroupMemberWithUser,
+  GroupSummary,
+  User,
+} from "@/src/types/domain";
 
 export type LoginPayload = {
   email: string;
@@ -14,7 +25,9 @@ export type RegisterPayload = LoginPayload & {
 
 export type AuthPayload = {
   user: User;
-  token: string;
+  access_token: string;
+  refresh_token: string;
+  access_token_expires_in: number;
 };
 
 export type CreateGroupPayload = {
@@ -22,7 +35,6 @@ export type CreateGroupPayload = {
   description?: string | null;
   type: "personal" | "shared";
   currency: "VND" | "USD";
-  owner_id: string;
 };
 
 export type CreateExpensePayload = {
@@ -32,7 +44,6 @@ export type CreateExpensePayload = {
   total_amount: number;
   currency: "VND" | "USD";
   paid_by_user_id: string;
-  created_by_user_id: string;
   expense_date: string;
   split_method: "equal" | "amount" | "percentage" | "shares";
   splits?: ExpenseSplit[];
@@ -50,26 +61,27 @@ export const tinoApi = {
       body: JSON.stringify(payload),
     }),
   me: () => apiRequest<User>("/auth/me"),
+  refresh: (refreshToken: string) =>
+    apiRequest<AuthPayload>("/auth/refresh", {
+      method: "POST",
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    }),
   logout: () =>
     apiRequest<{ revoked: boolean }>("/auth/logout", {
       method: "POST",
-      body: JSON.stringify({}),
+      body: JSON.stringify({ refresh_token: getRefreshToken() }),
     }),
-  listUsers: (page = 1, size = 100) =>
-    apiRequest<PageableResponse<User>>(`/api/users?page=${page}&size=${size}`),
-  listGroups: (page = 1, size = 20, userId?: string) => {
+  listGroups: (page = 1, size = 20) => {
     const params = new URLSearchParams({
       page: String(page),
       size: String(size),
     });
 
-    if (userId) {
-      params.set("user_id", userId);
-    }
-
     return apiRequest<PageableResponse<Group>>(`/api/groups?${params.toString()}`);
   },
   getGroup: (groupId: string) => apiRequest<Group>(`/api/groups/${groupId}`),
+  listGroupMembers: (groupId: string) =>
+    apiRequest<GroupMemberWithUser[]>(`/api/groups/${groupId}/members`),
   createGroup: (payload: CreateGroupPayload) =>
     apiRequest<{ group: Group; member: GroupMember }>("/api/groups", {
       method: "POST",

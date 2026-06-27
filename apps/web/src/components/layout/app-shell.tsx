@@ -22,6 +22,7 @@ import { ConfirmDialog } from "@/src/components/ui/confirm-dialog";
 import {
   clearAuthToken,
   getAuthToken,
+  getRefreshToken,
   setStoredCurrentUser,
 } from "@/src/lib/api-client";
 import {
@@ -90,8 +91,9 @@ export function AppShell({
   const currentUser = useAppSelector((state) => state.auth.user);
   const authHydrated = useAppSelector((state) => state.auth.hydrated);
   const [logout] = useLogoutMutation();
+  const hasStoredSession = Boolean(getAuthToken() || getRefreshToken());
   const shouldLoadCurrentUser =
-    authHydrated && !currentUser && Boolean(getAuthToken());
+    authHydrated && !currentUser && hasStoredSession;
   const { data: fetchedCurrentUser } = useGetCurrentUserQuery(undefined, {
     skip: !shouldLoadCurrentUser,
   });
@@ -104,6 +106,16 @@ export function AppShell({
     dispatch(setCurrentUser(fetchedCurrentUser));
     setStoredCurrentUser(fetchedCurrentUser);
   }, [dispatch, fetchedCurrentUser]);
+
+  useEffect(() => {
+    if (!authHydrated || hasStoredSession) {
+      return;
+    }
+
+    dispatch(clearCurrentUser());
+    dispatch(tinoApiSlice.util.resetApiState());
+    router.replace("/login");
+  }, [authHydrated, dispatch, hasStoredSession, router]);
 
   const userInitials = useMemo(() => {
     const source = currentUser?.display_name || currentUser?.email || "TE";
@@ -127,6 +139,14 @@ export function AppShell({
     dispatch(clearCurrentUser());
     dispatch(tinoApiSlice.util.resetApiState());
     router.push("/login");
+  }
+
+  if (!authHydrated || !currentUser || !hasStoredSession) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f7f8f5] dark:bg-zinc-950">
+        <div className="size-6 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-900 dark:border-zinc-700 dark:border-t-zinc-100" />
+      </main>
+    );
   }
 
   return (

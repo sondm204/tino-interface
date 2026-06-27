@@ -4,6 +4,7 @@ import type {
   Expense,
   Group,
   GroupMember,
+  GroupMemberWithUser,
   GroupSummary,
   User,
 } from "@/src/types/domain";
@@ -44,7 +45,7 @@ export const tinoApiSlice = createApi({
   reducerPath: "tinoApi",
   baseQuery: fakeBaseQuery<ApiError>(),
   keepUnusedDataFor: 60 * 60,
-  tagTypes: ["Auth", "Users", "Groups", "Expenses", "Summary"],
+  tagTypes: ["Auth", "Groups", "GroupMembers", "Expenses", "Summary"],
   endpoints: (builder) => ({
     login: builder.mutation<AuthPayload, LoginPayload>({
       queryFn: (payload) => runApi(() => tinoApi.login(payload)),
@@ -62,22 +63,12 @@ export const tinoApiSlice = createApi({
       queryFn: () => runApi(() => tinoApi.me()),
       providesTags: ["Auth"],
     }),
-    getUsers: builder.query<
-      PageableResponse<User>,
+    getGroups: builder.query<
+      PageableResponse<Group>,
       { page?: number; size?: number } | void
     >({
       queryFn: (args) =>
-        runApi(() => tinoApi.listUsers(args?.page, args?.size)),
-      providesTags: ["Users"],
-    }),
-    getGroups: builder.query<
-      PageableResponse<Group>,
-      { page?: number; size?: number; userId?: string } | void
-    >({
-      queryFn: (args) =>
-        runApi(() =>
-          tinoApi.listGroups(args?.page, args?.size, args?.userId)
-        ),
+        runApi(() => tinoApi.listGroups(args?.page, args?.size)),
       providesTags: (result) =>
         result
           ? [
@@ -104,7 +95,15 @@ export const tinoApiSlice = createApi({
         runApi(() => tinoApi.addGroupMember(groupId, userId)),
       invalidatesTags: (_result, _error, { groupId }) => [
         { type: "Groups", id: groupId },
+        { type: "GroupMembers", id: groupId },
         { type: "Summary", id: groupId },
+      ],
+    }),
+    getGroupMembers: builder.query<GroupMemberWithUser[], string>({
+      queryFn: (groupId) =>
+        runApi(() => tinoApi.listGroupMembers(groupId)),
+      providesTags: (_result, _error, groupId) => [
+        { type: "GroupMembers", id: groupId },
       ],
     }),
     getExpenses: builder.query<
@@ -178,9 +177,9 @@ export const {
   useDeleteExpenseMutation,
   useGetCurrentUserQuery,
   useGetExpensesQuery,
+  useGetGroupMembersQuery,
   useGetGroupsQuery,
   useGetSummaryQuery,
-  useGetUsersQuery,
   useLoginMutation,
   useLogoutMutation,
   useRegisterMutation,

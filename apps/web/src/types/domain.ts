@@ -30,6 +30,13 @@ export type GroupMember = {
   joined_at: string;
 };
 
+export type GroupMemberWithUser = GroupMember & {
+  user: Pick<
+    User,
+    "id" | "email" | "display_name" | "avatar_url" | "status"
+  >;
+};
+
 export type ExpenseSplit = {
   user_id: string;
   amount?: number | null;

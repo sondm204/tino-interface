@@ -27,8 +27,8 @@ export function GroupsScreen() {
     error: groupsError,
     isLoading: groupsLoading,
   } = useGetGroupsQuery(
-    { page: 1, size: 20, userId: currentUser?.id },
-    { skip: !authHydrated }
+    { page: 1, size: 20 },
+    { skip: !authHydrated || !currentUser }
   );
   const [createGroup, createGroupState] = useCreateGroupMutation();
   const groups = useMemo(() => groupsData?.items ?? [], [groupsData]);
@@ -85,7 +85,6 @@ export function GroupsScreen() {
         description,
         type,
         currency,
-        owner_id: currentUser.id,
       }).unwrap();
 
       setName("");

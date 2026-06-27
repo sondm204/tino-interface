@@ -2,15 +2,19 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { WalletCards } from "lucide-react";
 import { Button } from "@/src/components/ui/button";
 import { Card, CardBody } from "@/src/components/ui/card";
 import { TextField } from "@/src/components/ui/field";
 import { ThemeToggle } from "@/src/components/layout/theme-toggle";
-import { setAuthToken, setStoredCurrentUser } from "@/src/lib/api-client";
+import {
+  setAuthToken,
+  setRefreshToken,
+  setStoredCurrentUser,
+} from "@/src/lib/api-client";
 import { setCurrentUser } from "@/src/store/auth-slice";
-import { useAppDispatch } from "@/src/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/src/store/hooks";
 import {
   useLoginMutation,
   useRegisterMutation,
@@ -21,6 +25,8 @@ type Mode = "login" | "register";
 export function AuthPanel({ mode }: { mode: Mode }) {
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const currentUser = useAppSelector((state) => state.auth.user);
+  const authHydrated = useAppSelector((state) => state.auth.hydrated);
   const [login, loginState] = useLoginMutation();
   const [register, registerState] = useRegisterMutation();
   const [email, setEmail] = useState("");
@@ -29,6 +35,12 @@ export function AuthPanel({ mode }: { mode: Mode }) {
   const [error, setError] = useState<string | null>(null);
   const isRegister = mode === "register";
   const loading = loginState.isLoading || registerState.isLoading;
+
+  useEffect(() => {
+    if (authHydrated && currentUser) {
+      router.replace("/groups");
+    }
+  }, [authHydrated, currentUser, router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -43,7 +55,8 @@ export function AuthPanel({ mode }: { mode: Mode }) {
           }).unwrap()
         : await login({ email, password }).unwrap();
 
-      setAuthToken(response.token);
+      setAuthToken(response.access_token);
+      setRefreshToken(response.refresh_token);
       setStoredCurrentUser(response.user);
       dispatch(setCurrentUser(response.user));
 

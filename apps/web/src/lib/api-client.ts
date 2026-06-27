@@ -4,6 +4,7 @@ import type { User } from "@/src/types/domain";
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000";
 const AUTH_TOKEN_KEY = "tino-auth-token";
+const REFRESH_TOKEN_KEY = "tino-refresh-token";
 const CURRENT_USER_KEY = "tino-current-user";
 const GET_CACHE_TTL_MS = 5_000;
 
@@ -14,6 +15,17 @@ type CachedResponse = {
 
 const getResponseCache = new Map<string, CachedResponse>();
 const pendingGetRequests = new Map<string, Promise<ApiResponse<unknown>>>();
+let refreshRequest: Promise<string | null> | null = null;
+
+class ApiHttpError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code: string
+  ) {
+    super(message);
+  }
+}
 
 export function getAuthToken() {
   if (typeof window === "undefined") {
@@ -27,6 +39,18 @@ export function setAuthToken(token: string) {
   getResponseCache.clear();
   pendingGetRequests.clear();
   window.localStorage.setItem(AUTH_TOKEN_KEY, token);
+}
+
+export function getRefreshToken() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+export function setRefreshToken(token: string) {
+  window.localStorage.setItem(REFRESH_TOKEN_KEY, token);
 }
 
 export function getStoredCurrentUser() {
@@ -54,9 +78,63 @@ export function setStoredCurrentUser(user: User) {
 
 export function clearAuthToken() {
   window.localStorage.removeItem(AUTH_TOKEN_KEY);
+  window.localStorage.removeItem(REFRESH_TOKEN_KEY);
   window.localStorage.removeItem(CURRENT_USER_KEY);
   getResponseCache.clear();
   pendingGetRequests.clear();
+}
+
+function expireSession() {
+  clearAuthToken();
+  window.dispatchEvent(new Event("tino-auth-expired"));
+}
+
+async function refreshAccessToken() {
+  if (refreshRequest) {
+    return refreshRequest;
+  }
+
+  const refreshToken = getRefreshToken();
+
+  if (!refreshToken) {
+    expireSession();
+    return null;
+  }
+
+  refreshRequest = fetch(`${API_BASE_URL}/auth/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  })
+    .then(async (response) => {
+      const payload = (await response.json()) as ApiResponse<{
+        access_token: string;
+        refresh_token: string;
+        user?: User;
+      }>;
+
+      if (!response.ok || !payload.data) {
+        throw new Error(payload.message || "Không thể làm mới phiên đăng nhập");
+      }
+
+      setAuthToken(payload.data.access_token);
+      setRefreshToken(payload.data.refresh_token);
+
+      if (payload.data.user) {
+        setStoredCurrentUser(payload.data.user);
+      }
+
+      return payload.data.access_token;
+    })
+    .catch(() => {
+      expireSession();
+      return null;
+    })
+    .finally(() => {
+      refreshRequest = null;
+    });
+
+  return refreshRequest;
 }
 
 async function executeRequest<T>(
@@ -71,10 +149,49 @@ async function executeRequest<T>(
   const payload = (await response.json()) as ApiResponse<T>;
 
   if (!response.ok) {
-    throw new Error(payload.message || "Request failed");
+    throw new ApiHttpError(
+      payload.message || "Request failed",
+      response.status,
+      payload.code
+    );
   }
 
   return payload;
+}
+
+async function executeWithRefresh<T>(
+  path: string,
+  init: RequestInit,
+  headers: Headers
+) {
+  try {
+    return await executeRequest<T>(path, init, headers);
+  } catch (error) {
+    const isSessionEndpoint = [
+      "/auth/login",
+      "/auth/register",
+      "/auth/refresh",
+      "/auth/logout",
+    ].includes(path);
+
+    if (
+      !(error instanceof ApiHttpError) ||
+      error.status !== 401 ||
+      isSessionEndpoint
+    ) {
+      throw error;
+    }
+
+    const accessToken = await refreshAccessToken();
+
+    if (!accessToken) {
+      throw error;
+    }
+
+    const retryHeaders = new Headers(headers);
+    retryHeaders.set("Authorization", `Bearer ${accessToken}`);
+    return executeRequest<T>(path, init, retryHeaders);
+  }
 }
 
 export async function apiRequest<T>(
@@ -92,7 +209,7 @@ export async function apiRequest<T>(
   }
 
   if (method !== "GET") {
-    const response = await executeRequest<T>(path, init, headers);
+    const response = await executeWithRefresh<T>(path, init, headers);
     getResponseCache.clear();
     pendingGetRequests.clear();
     return response;
@@ -115,7 +232,7 @@ export async function apiRequest<T>(
     return pending as Promise<ApiResponse<T>>;
   }
 
-  const request = executeRequest<T>(path, init, headers)
+  const request = executeWithRefresh<T>(path, init, headers)
     .then((response) => {
       getResponseCache.set(cacheKey, {
         expiresAt: Date.now() + GET_CACHE_TTL_MS,

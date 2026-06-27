@@ -35,8 +35,8 @@ import {
   useCreateExpenseMutation,
   useDeleteExpenseMutation,
   useGetExpensesQuery,
+  useGetGroupMembersQuery,
   useGetSummaryQuery,
-  useGetUsersQuery,
 } from "@/src/store/tino-api-slice";
 import type { Expense, ExpenseSplit } from "@/src/types/domain";
 
@@ -49,17 +49,19 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
   const authHydrated = useAppSelector((state) => state.auth.hydrated);
   const [month, setMonth] = useState(currentMonth());
   const {
-    data: usersData,
-    error: usersError,
-    isLoading: usersLoading,
-  } = useGetUsersQuery(undefined, { skip: !authHydrated });
+    data: groupMembers,
+    error: membersError,
+    isLoading: membersLoading,
+  } = useGetGroupMembersQuery(groupId, {
+    skip: !authHydrated || !currentUser,
+  });
   const {
     data: expensesData,
     error: expensesError,
     isLoading: expensesLoading,
   } = useGetExpensesQuery(
     { groupId, page: 1, size: 20 },
-    { skip: !authHydrated }
+    { skip: !authHydrated || !currentUser }
   );
   const {
     data: summary,
@@ -67,11 +69,14 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
     isLoading: summaryLoading,
   } = useGetSummaryQuery(
     { groupId, month },
-    { skip: !authHydrated }
+    { skip: !authHydrated || !currentUser }
   );
   const [createExpense, createExpenseState] = useCreateExpenseMutation();
   const [deleteExpense] = useDeleteExpenseMutation();
-  const users = useMemo(() => usersData?.items ?? [], [usersData]);
+  const users = useMemo(
+    () => groupMembers?.map((member) => member.user) ?? [],
+    [groupMembers]
+  );
   const expenses = expensesData?.items ?? [];
   const group = summary?.group ?? null;
   const [title, setTitle] = useState("");
@@ -82,7 +87,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
   const [splitValues, setSplitValues] = useState<Record<string, string>>({});
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const queryError = [usersError, expensesError, summaryError]
+  const queryError = [membersError, expensesError, summaryError]
     .map((error) =>
       error &&
       "message" in error &&
@@ -93,7 +98,7 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
     .find(Boolean);
   const error = formError || queryError || null;
   const loading =
-    !authHydrated || usersLoading || expensesLoading || summaryLoading;
+    !authHydrated || membersLoading || expensesLoading || summaryLoading;
   const saving = createExpenseState.isLoading;
 
   const currentUserGroupExpense = useMemo(() => {
@@ -248,7 +253,6 @@ export function GroupDetailScreen({ groupId }: { groupId: string }) {
           total_amount: totalAmount,
           currency: group.currency,
           paid_by_user_id: currentUser.id,
-          created_by_user_id: currentUser.id,
           expense_date: expenseDate,
           split_method: splitMethod,
           splits,
