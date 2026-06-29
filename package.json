@@ -14,13 +14,6 @@
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@11.9.0",
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "11.9.0",
-      "onFail": "download"
-    }
-  },
   "type": "module",
   "devDependencies": {
     "prettier": "^3.8.4",

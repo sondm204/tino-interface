@@ -1,6 +1,7 @@
 packages:
   - "apps/*"
   - "packages/*"
+pmOnFail: ignore
 allowBuilds:
   sharp: true
   unrs-resolver: true
