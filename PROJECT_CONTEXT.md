@@ -19,6 +19,8 @@ Phase 1 is a straightforward expense tracking product. The focus is to make expe
 Phase 1 should support:
 
 - Manual account registration and login.
+- Viewing and updating the current user's display name, avatar, and password.
+- Email is the login identifier and cannot be changed in Phase 1.
 - Creating and managing expense wallets.
 - Inviting or adding members to a wallet.
 - Adding expenses inside a wallet.
@@ -250,7 +252,13 @@ Current important files:
 - `apps/web/package.json`: web app dependencies and scripts.
 - `apps/web/app`: current Next.js App Router directory.
 
-The web app is currently close to a fresh `create-next-app` template. Product screens, routing, auth UI, API integration, and domain-specific components still need to be built.
+The web app currently includes custom authentication, wallet list/detail screens,
+expense creation and splitting, monthly summaries, a profile screen, Redux Toolkit
+with RTK Query, shadcn/ui components, dark mode, skeleton states, and toast feedback.
+
+The Express backend lives in the separate `E:\Tino\tino-service` repository. It
+currently owns authentication, users, wallets, wallet members, expenses, summaries,
+and profile avatar upload.
 
 ## Workspace Commands
 
@@ -331,7 +339,10 @@ Recommended API surface for Phase 1:
 - `POST /auth/register`
 - `POST /auth/login`
 - `POST /auth/logout`
-- `GET /me`
+- `GET /auth/me`
+- `PATCH /api/users/me`
+- `PATCH /api/users/me/password`
+- `POST /api/users/me/avatar`
 - `GET /wallets`
 - `POST /wallets`
 - `GET /wallets/:walletId`
@@ -365,6 +376,25 @@ Current cleanup decision:
 - Remove `@supabase/ssr` because the project is not using Supabase Auth or Supabase SSR session helpers.
 
 If backend database access is implemented only with a server-side Postgres driver later, `@supabase/supabase-js` can also be removed from the web app.
+
+## Object Storage
+
+User avatars are uploaded by the Express backend through an S3-compatible storage
+adapter using the AWS SDK. The same implementation supports MinIO and AWS S3.
+
+Backend environment variables:
+
+- `S3_ENDPOINT`: MinIO or another S3-compatible endpoint; omit for AWS S3.
+- `S3_REGION`
+- `S3_BUCKET`
+- `S3_ACCESS_KEY_ID`
+- `S3_SECRET_ACCESS_KEY`
+- `S3_FORCE_PATH_STYLE`: normally `true` for local MinIO.
+- `S3_PUBLIC_BASE_URL`: public bucket/base URL used to build avatar URLs.
+
+The avatar bucket must allow public reads through its bucket policy or be exposed
+through a public CDN/base URL. Uploads are limited to 5 MB and accept JPEG, PNG,
+WebP, and GIF.
 
 ## Coding Conventions
 

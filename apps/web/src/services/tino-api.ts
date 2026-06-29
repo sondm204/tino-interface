@@ -49,6 +49,15 @@ export type CreateExpensePayload = {
   splits?: ExpenseSplit[];
 };
 
+export type UpdateProfilePayload = {
+  display_name: string;
+};
+
+export type ChangePasswordPayload = {
+  current_password: string;
+  new_password: string;
+};
+
 export const tinoApi = {
   register: (payload: RegisterPayload) =>
     apiRequest<AuthPayload>("/auth/register", {
@@ -71,6 +80,25 @@ export const tinoApi = {
       method: "POST",
       body: JSON.stringify({ refresh_token: getRefreshToken() }),
     }),
+  updateProfile: (payload: UpdateProfilePayload) =>
+    apiRequest<User>("/api/users/me", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  changePassword: (payload: ChangePasswordPayload) =>
+    apiRequest<{ updated: boolean }>("/api/users/me/password", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  uploadAvatar: (file: File) => {
+    const formData = new FormData();
+    formData.append("avatar", file);
+
+    return apiRequest<{ user: User; object_key: string }>("/api/users/me/avatar", {
+      method: "POST",
+      body: formData,
+    });
+  },
   listWallets: (page = 1, size = 20) => {
     const params = new URLSearchParams({
       page: String(page),

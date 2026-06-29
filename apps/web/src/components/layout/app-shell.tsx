@@ -5,12 +5,12 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
   CircleHelp,
-  Home,
   LogOut,
   MoreHorizontal,
   ReceiptText,
   Search,
   Settings,
+  UserRound,
   Users,
   WalletCards,
 } from "lucide-react";
@@ -63,9 +63,7 @@ const iconModeButtonClass =
   "group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:[&>span]:hidden";
 
 const mainNavItems = [
-  { href: "/wallets", label: "Tổng quan", icon: Home, activePath: "/wallets" },
   { href: "/wallets", label: "Ví chi tiêu", icon: Users, activePath: "/wallets" },
-  { href: "/wallets", label: "Chi tiêu", icon: ReceiptText },
 ];
 
 const supportNavItems = [
@@ -244,6 +242,12 @@ export function AppShell({
                   <SidebarMenuItem key={item.label}>
                     <SidebarMenuButton
                       className={iconModeButtonClass}
+                      isActive={"href" in item && pathname === item.href}
+                      render={
+                        "href" in item && item.href
+                          ? <Link href={item.href} />
+                          : undefined
+                      }
                       tooltip={item.label}
                     >
                       <Icon />
@@ -265,8 +269,15 @@ export function AppShell({
                   />
                 }
               >
-                <div className="flex size-8 items-center justify-center rounded-lg bg-sidebar-accent text-xs font-semibold text-sidebar-accent-foreground">
-                  {userInitials}
+                <div
+                  className="flex size-8 items-center justify-center rounded-lg bg-sidebar-accent bg-cover bg-center text-xs font-semibold text-sidebar-accent-foreground"
+                  style={
+                    currentUser.avatar_url
+                      ? { backgroundImage: `url("${currentUser.avatar_url}")` }
+                      : undefined
+                  }
+                >
+                  {!currentUser.avatar_url ? userInitials : null}
                 </div>
                 <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
                   <p className="truncate text-sm font-medium">
@@ -279,8 +290,15 @@ export function AppShell({
               </PopoverTrigger>
               <PopoverContent align="start" className="w-fit p-3" side="top" sideOffset={10}>
                 <div className="flex items-start gap-3 rounded-lg border border-border p-3">
-                  <div className="flex size-11 items-center justify-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground">
-                    {userInitials}
+                  <div
+                    className="flex size-11 items-center justify-center rounded-lg bg-primary bg-cover bg-center text-sm font-semibold text-primary-foreground"
+                    style={
+                      currentUser.avatar_url
+                        ? { backgroundImage: `url("${currentUser.avatar_url}")` }
+                        : undefined
+                    }
+                  >
+                    {!currentUser.avatar_url ? userInitials : null}
                   </div>
                   <div className="min-w-0">
                     <p className="truncate font-semibold">
@@ -297,6 +315,16 @@ export function AppShell({
                     </p>
                   </div>
                 </div>
+                <Button
+                  className="w-full"
+                  nativeButton={false}
+                  render={<Link href="/profile" />}
+                  type="button"
+                  variant="outline"
+                >
+                  <UserRound size={16} />
+                  Xem hồ sơ
+                </Button>
                 <ConfirmDialog
                   confirmText="Đăng xuất"
                   description="Bạn sẽ cần đăng nhập lại để tiếp tục sử dụng Tino Expense."

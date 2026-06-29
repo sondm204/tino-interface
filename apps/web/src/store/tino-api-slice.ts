@@ -13,8 +13,10 @@ import {
   type AuthPayload,
   type CreateExpensePayload,
   type CreateWalletPayload,
+  type ChangePasswordPayload,
   type LoginPayload,
   type RegisterPayload,
+  type UpdateProfilePayload,
 } from "@/src/services/tino-api";
 
 type ApiError = {
@@ -62,6 +64,23 @@ export const tinoApiSlice = createApi({
     getCurrentUser: builder.query<User, void>({
       queryFn: () => runApi(() => tinoApi.me()),
       providesTags: ["Auth"],
+    }),
+    updateProfile: builder.mutation<User, UpdateProfilePayload>({
+      queryFn: (payload) => runApi(() => tinoApi.updateProfile(payload)),
+      invalidatesTags: ["Auth"],
+    }),
+    changePassword: builder.mutation<
+      { updated: boolean },
+      ChangePasswordPayload
+    >({
+      queryFn: (payload) => runApi(() => tinoApi.changePassword(payload)),
+    }),
+    uploadAvatar: builder.mutation<
+      { user: User; object_key: string },
+      File
+    >({
+      queryFn: (file) => runApi(() => tinoApi.uploadAvatar(file)),
+      invalidatesTags: ["Auth"],
     }),
     getWallets: builder.query<
       PageableResponse<Wallet>,
@@ -172,6 +191,7 @@ export const tinoApiSlice = createApi({
 
 export const {
   useAddWalletMemberMutation,
+  useChangePasswordMutation,
   useCreateExpenseMutation,
   useCreateWalletMutation,
   useDeleteExpenseMutation,
@@ -183,5 +203,7 @@ export const {
   useLoginMutation,
   useLogoutMutation,
   useRegisterMutation,
+  useUpdateProfileMutation,
   useUpdateExpenseMutation,
+  useUploadAvatarMutation,
 } = tinoApiSlice;
