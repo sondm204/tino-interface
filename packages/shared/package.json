@@ -1,0 +1,12 @@
+{
+  "name": "@tino/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./labels": "./src/labels.ts",
+    "./format": "./src/format.ts",
+    "./types/api": "./src/types/api.ts",
+    "./types/domain": "./src/types/domain.ts"
+  }
+}
