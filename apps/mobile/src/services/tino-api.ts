@@ -1,3 +1,5 @@
+import { File } from "expo-file-system";
+import { Platform } from "react-native";
 import { apiRequest, getRefreshToken } from "@/lib/api-client";
 import type { PageableResponse } from "@/types/api";
 import type {
@@ -88,9 +90,13 @@ export const tinoApi = {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
-  uploadAvatar: (file: UploadAvatarFile) => {
+  uploadAvatar: async (file: UploadAvatarFile) => {
+    const blob =
+      Platform.OS === "web"
+        ? await fetch(file.uri).then((response) => response.blob())
+        : new File(file.uri);
     const formData = new FormData();
-    formData.append("avatar", file as unknown as Blob);
+    formData.append("avatar", blob, file.name);
 
     return apiRequest<{ user: User; object_key: string }>(
       "/api/users/me/avatar",

@@ -14,7 +14,6 @@ import {
   CalendarDays,
   ChevronDown,
   ChevronUp,
-  Pencil,
   Plus,
   Trash2,
 } from "lucide-react-native";
@@ -113,7 +112,6 @@ export function WalletDetailScreen() {
   const [month, setMonth] = useState(getCurrentMonth());
   const [createDialogVisible, setCreateDialogVisible] = useState(false);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
-  const [actionExpense, setActionExpense] = useState<Expense | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
@@ -325,7 +323,6 @@ export function WalletDetailScreen() {
       })
     );
 
-    setActionExpense(null);
     setEditingExpense(expense);
     setEditTitle(expense.title);
     setEditDescription(expense.description || "");
@@ -426,7 +423,6 @@ export function WalletDetailScreen() {
   }
 
   function confirmDeleteExpense(expense: Expense) {
-    setActionExpense(null);
     alert("Xóa khoản chi?", `"${expense.title}" sẽ bị xóa khỏi ví.`, [
       { text: "Hủy", style: "cancel" },
       {
@@ -437,7 +433,10 @@ export function WalletDetailScreen() {
 
           if ("error" in result) {
             alert("Không thể xóa", result.error?.message || "Đã có lỗi xảy ra.");
+            return;
           }
+
+          setEditingExpense(null);
         },
       },
     ]);
@@ -617,9 +616,8 @@ export function WalletDetailScreen() {
               {group.data.map((expense, index) => (
                 <Pressable
                   className={index > 0 ? "border-t border-slate-100" : ""}
-                  delayLongPress={350}
                   key={expense.id}
-                  onLongPress={() => setActionExpense(expense)}
+                  onPress={() => openEditExpense(expense)}
                 >
                   <View className="flex-row items-center gap-3 px-4 py-3.5">
                     <View className="flex-1">
@@ -725,29 +723,6 @@ export function WalletDetailScreen() {
           <Button onPress={() => setCreateDialogVisible(false)} variant="ghost">Hủy</Button>
           <Button loading={createState.isLoading} onPress={handleCreateExpense}>Lưu</Button>
         </View>
-      </Dialog>
-
-      <Dialog
-        open={actionExpense !== null}
-        onOpenChange={(open) => !open && setActionExpense(null)}
-        title={actionExpense?.title}
-      >
-        {actionExpense ? (
-          <>
-            <Button onPress={() => openEditExpense(actionExpense)} variant="ghost">
-              <Pencil color="#0f172a" size={18} />
-              Sửa khoản chi
-            </Button>
-            <Button
-              disabled={deleteState.isLoading}
-              onPress={() => confirmDeleteExpense(actionExpense)}
-              variant="ghost"
-            >
-              <Trash2 color="#dc2626" size={18} />
-              <Text className="font-semibold text-red-600">Xóa khoản chi</Text>
-            </Button>
-          </>
-        ) : null}
       </Dialog>
 
       <Dialog
@@ -925,6 +900,17 @@ export function WalletDetailScreen() {
         ) : null}
 
         <View className="flex-row justify-end gap-2">
+          <Button
+            accessibilityLabel="Xóa khoản chi"
+            className="mr-auto px-3"
+            disabled={deleteState.isLoading}
+            onPress={() =>
+              editingExpense && confirmDeleteExpense(editingExpense)
+            }
+            variant="ghost"
+          >
+            <Trash2 color="#dc2626" size={18} />
+          </Button>
           <Button onPress={() => setEditingExpense(null)} variant="ghost">Hủy</Button>
           <Button loading={updateState.isLoading} onPress={handleUpdateExpense}>Lưu thay đổi</Button>
         </View>
