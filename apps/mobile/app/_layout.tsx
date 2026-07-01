@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AlertDialogProvider } from "@/components/ui/alert-dialog";
+import { ThemeProvider } from "@/components/theme-provider";
 import { StoreProvider } from "@/store/store-provider";
 
 export default function RootLayout() {
@@ -11,13 +12,16 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StoreProvider>
-          <AlertDialogProvider>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(auth)" />
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="wallets/[walletId]" />
-            </Stack>
-          </AlertDialogProvider>
+          <ThemeProvider>
+            <AlertDialogProvider>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="profile" />
+                <Stack.Screen name="wallets/[walletId]" />
+              </Stack>
+            </AlertDialogProvider>
+          </ThemeProvider>
         </StoreProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -57,7 +57,7 @@ export function AlertDialogProvider({ children }: { children: React.ReactNode })
         >
           <FlyIn distance={18} key={options ? "open" : "closed"} style={{ width: "100%" }}>
             <Pressable
-              className="w-full max-w-md gap-4 self-center rounded-2xl bg-white p-5"
+              className="w-full max-w-md gap-4 self-center rounded-2xl bg-white p-5 dark:bg-slate-900"
               onPress={(event) => event.stopPropagation()}
             >
               <View className="gap-2">

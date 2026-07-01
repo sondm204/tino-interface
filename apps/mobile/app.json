@@ -10,7 +10,14 @@
     "plugins": [
       "expo-router",
       "expo-image-picker",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-navigation-bar",
+        {
+          "enforceContrast": false,
+          "style": "dark"
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": true

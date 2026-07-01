@@ -11,7 +11,7 @@ export function Screen({ children, scroll = true }: ScreenProps) {
   const insets = useSafeAreaInsets();
   const content = (
     <View
-      className="flex-1 gap-4 bg-slate-50 px-4"
+      className="flex-1 gap-4 bg-slate-50 px-4 dark:bg-slate-950"
       style={{
         paddingBottom: Math.max(insets.bottom + 20, 32),
         paddingTop: Math.max(insets.top + 16, 28),
@@ -26,7 +26,7 @@ export function Screen({ children, scroll = true }: ScreenProps) {
   }
 
   return (
-    <ScrollView className="bg-slate-50" contentContainerClassName="flex-grow">
+    <ScrollView className="bg-slate-50 dark:bg-slate-950" contentContainerClassName="flex-grow">
       {content}
     </ScrollView>
   );
@@ -37,7 +37,7 @@ export function LoadingState({ label = "Đang tải dữ liệu..." }: { label?:
 
   return (
     <View
-      className="min-h-56 flex-1 items-center justify-center gap-3 bg-slate-50 px-6"
+      className="min-h-56 flex-1 items-center justify-center gap-3 bg-slate-50 px-6 dark:bg-slate-950"
       style={{
         paddingBottom: Math.max(insets.bottom + 20, 32),
         paddingTop: Math.max(insets.top + 16, 28),

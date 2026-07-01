@@ -1,9 +1,11 @@
 import { Tabs } from "expo-router";
-import { AppWindow, LayoutDashboard, UserCircle, Wallet } from "lucide-react-native";
+import { AppWindow, LayoutDashboard, Settings, Wallet } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTheme } from "@/components/theme-provider";
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const { isDark } = useTheme();
   const bottomInset = Math.max(insets.bottom, 8);
 
   return (
@@ -12,10 +14,11 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: "#2563eb",
         tabBarHideOnKeyboard: true,
-        tabBarInactiveTintColor: "#64748b",
+        tabBarInactiveTintColor: isDark ? "#94a3b8" : "#64748b",
         tabBarLabelStyle: { fontSize: 12, fontWeight: "600" },
         tabBarStyle: {
-          borderTopColor: "#e2e8f0",
+          backgroundColor: isDark ? "#0f172a" : "#ffffff",
+          borderTopColor: isDark ? "#1e293b" : "#e2e8f0",
           height: 56 + bottomInset,
           paddingBottom: bottomInset,
           paddingTop: 8,
@@ -50,11 +53,11 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="settings"
         options={{
-          title: "Profile",
+          title: "Cài đặt",
           tabBarIcon: ({ color, size }) => (
-            <UserCircle color={String(color)} size={size} />
+            <Settings color={String(color)} size={size} />
           ),
         }}
       />

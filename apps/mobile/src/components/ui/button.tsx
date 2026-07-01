@@ -1,6 +1,7 @@
 import { Children } from "react";
 import { ActivityIndicator, Pressable, type PressableProps } from "react-native";
 import { cva, type VariantProps } from "class-variance-authority";
+import { useColorScheme } from "nativewind";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 
@@ -10,7 +11,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-blue-600",
-        outline: "border border-slate-200 bg-white",
+        outline: "border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900",
         ghost: "bg-transparent",
         destructive: "bg-red-600",
       },
@@ -42,8 +43,11 @@ export function Button({
   variant,
   ...props
 }: ButtonProps) {
+  const { colorScheme } = useColorScheme();
   const textTone =
-    variant === "outline" || variant === "ghost" ? "text-slate-900" : "text-white";
+    variant === "outline" || variant === "ghost"
+      ? "text-slate-900 dark:text-slate-100"
+      : "text-white";
 
   return (
     <Pressable
@@ -55,7 +59,15 @@ export function Button({
       disabled={disabled || loading}
       {...props}
     >
-      {loading ? <ActivityIndicator color={textTone === "text-white" ? "#fff" : "#0f172a"} /> : null}
+      {loading ? (
+        <ActivityIndicator
+          color={
+            textTone === "text-white" || colorScheme === "dark"
+              ? "#fff"
+              : "#0f172a"
+          }
+        />
+      ) : null}
       {Children.map(children, (child) =>
         typeof child === "string" || typeof child === "number" ? (
           <Text

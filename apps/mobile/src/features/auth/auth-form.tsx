@@ -65,7 +65,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   }
 
   return (
-    <View className="flex-1 justify-center bg-slate-50 p-4">
+    <View className="flex-1 justify-center bg-slate-50 p-4 dark:bg-slate-950">
       <Card className="gap-3">
         <View className="mb-2 gap-1">
           <Text variant="headline">Tino Expense</Text>

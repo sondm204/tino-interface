@@ -19,6 +19,7 @@ import {
 } from "lucide-react-native";
 import { Button } from "@/components/ui/button";
 import { useAlertDialog } from "@/components/ui/alert-dialog";
+import { useTheme } from "@/components/theme-provider";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -106,6 +107,7 @@ function getSplitAmount(
 
 export function WalletDetailScreen() {
   const { alert } = useAlertDialog();
+  const { isDark } = useTheme();
   const { walletId } = useLocalSearchParams<{ walletId: string }>();
   const currentUser = useAppSelector((state) => state.auth.user);
   const monthOptions = useMemo(() => getMonthOptions(), []);
@@ -455,7 +457,7 @@ export function WalletDetailScreen() {
       <Screen scroll={false}>
         <View className="flex-row items-center justify-between gap-3">
           <Button className="px-3" onPress={() => router.back()} variant="ghost">
-            <ArrowLeft color="#0f172a" size={18} />
+            <ArrowLeft color={isDark ? "#f8fafc" : "#0f172a"} size={18} />
             <Text className="font-semibold">Quay lại</Text>
           </Button>
           <Button onPress={() => setCreateDialogVisible(true)}>
@@ -482,13 +484,13 @@ export function WalletDetailScreen() {
                       : "Hiện chi tiêu và quyết toán"
                   }
                   accessibilityRole="button"
-                  className="size-9 items-center justify-center rounded-full bg-slate-100"
+                  className="size-9 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800"
                   onPress={toggleSummary}
                 >
                   {summaryExpanded ? (
-                    <ChevronUp color="#475569" size={19} />
+                    <ChevronUp color={isDark ? "#cbd5e1" : "#475569"} size={19} />
                   ) : (
-                    <ChevronDown color="#475569" size={19} />
+                    <ChevronDown color={isDark ? "#cbd5e1" : "#475569"} size={19} />
                   )}
                 </Pressable>
               </View>
@@ -496,25 +498,25 @@ export function WalletDetailScreen() {
               {summaryExpanded ? (
                 <>
                 <View className="gap-2">
-                  <Text className="text-sm font-semibold text-slate-600">
+                  <Text className="text-sm font-semibold text-slate-600 dark:text-slate-300">
                     Chi tiêu theo thành viên
                   </Text>
               {(summaryQuery.data?.member_balances || []).map((item) => (
                 <View
-                  className="flex-row items-center gap-3 border-t border-slate-100 pt-2"
+                  className="flex-row items-center gap-3 border-t border-slate-100 pt-2 dark:border-slate-800"
                   key={item.user_id}
                 >
                   <Text className="flex-1 text-sm font-semibold" numberOfLines={1}>
                     {memberNameById.get(item.user_id) || item.user_id}
                   </Text>
                   <View className="items-end">
-                    <Text className="text-xs text-slate-500">Đã trả</Text>
+                    <Text className="text-xs text-slate-500 dark:text-slate-400">Đã trả</Text>
                     <Text className="text-sm font-semibold">
                       {formatCurrency(item.paid, summaryQuery.data?.currency || "VND")}
                     </Text>
                   </View>
                   <View className="items-end">
-                    <Text className="text-xs text-slate-500">Phần chi</Text>
+                    <Text className="text-xs text-slate-500 dark:text-slate-400">Phần chi</Text>
                     <Text className="text-sm font-semibold">
                       {formatCurrency(item.share, summaryQuery.data?.currency || "VND")}
                     </Text>
@@ -523,8 +525,8 @@ export function WalletDetailScreen() {
               ))}
                 </View>
 
-                <View className="gap-2 border-t border-slate-200 pt-3">
-                  <Text className="text-sm font-semibold text-slate-600">
+                <View className="gap-2 border-t border-slate-200 pt-3 dark:border-slate-800">
+                  <Text className="text-sm font-semibold text-slate-600 dark:text-slate-300">
                     Quyết toán
                   </Text>
                   {summaryQuery.data?.settlements.length ? (
@@ -570,7 +572,9 @@ export function WalletDetailScreen() {
             return (
               <Pressable
                 className={`min-w-24 h-fit rounded-lg border px-4 py-2 ${
-                  selected ? "border-slate-900 bg-slate-900" : "border-slate-200 bg-white"
+                  selected
+                    ? "border-slate-900 bg-slate-900 dark:border-blue-500 dark:bg-blue-600"
+                    : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
                 }`}
                 key={option.value}
                 onPress={() => setMonth(option.value)}
@@ -578,7 +582,7 @@ export function WalletDetailScreen() {
                 <Text className={`text-center text-sm font-semibold ${selected ? "text-white" : ""}`}>
                   {option.label}
                 </Text>
-                <Text className={`text-center text-xs ${selected ? "text-slate-300" : "text-slate-500"}`}>
+                <Text className={`text-center text-xs ${selected ? "text-slate-300 dark:text-blue-100" : "text-slate-500 dark:text-slate-400"}`}>
                   {option.year}
                 </Text>
               </Pressable>
@@ -608,14 +612,14 @@ export function WalletDetailScreen() {
           }
           renderItem={({ item: group }) => (
             <Card className="gap-0 p-0">
-              <View className="border-b border-slate-100 px-4 py-3">
-                <Text className="font-semibold capitalize text-slate-600">
+              <View className="border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+                <Text className="font-semibold capitalize text-slate-600 dark:text-slate-300">
                   {formatExpenseDay(group.date)}
                 </Text>
               </View>
               {group.data.map((expense, index) => (
                 <Pressable
-                  className={index > 0 ? "border-t border-slate-100" : ""}
+                  className={index > 0 ? "border-t border-slate-100 dark:border-slate-800" : ""}
                   key={expense.id}
                   onPress={() => openEditExpense(expense)}
                 >
@@ -666,7 +670,7 @@ export function WalletDetailScreen() {
             </View>
 
             {splitMethod !== "equal" ? (
-              <View className="gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <View className="gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950">
                 <View className="gap-1">
                   <Text className="font-semibold">
                     {splitInputMeta.label} theo thành viên
@@ -704,7 +708,7 @@ export function WalletDetailScreen() {
                   </View>
                 ))}
 
-                <View className="flex-row items-center justify-between border-t border-slate-200 pt-2">
+                <View className="flex-row items-center justify-between border-t border-slate-200 pt-2 dark:border-slate-700">
                   <Text variant="small">Tổng đã nhập</Text>
                   <Text className="text-sm font-semibold">
                     {splitMethod === "amount"
@@ -762,10 +766,10 @@ export function WalletDetailScreen() {
         ) : (
           <>
             <Pressable
-              className="min-h-12 flex-row items-center gap-3 rounded-xl border border-slate-200 bg-white px-3"
+              className="min-h-12 flex-row items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 dark:border-slate-700 dark:bg-slate-900"
               onPress={() => setEditDatePickerVisible(true)}
             >
-              <CalendarDays color="#475569" size={18} />
+              <CalendarDays color={isDark ? "#cbd5e1" : "#475569"} size={18} />
               <Text className="flex-1">
                 {editExpenseDate
                   ? new Intl.DateTimeFormat("vi-VN", {
@@ -780,6 +784,7 @@ export function WalletDetailScreen() {
               <DateTimePicker
                 display={Platform.OS === "ios" ? "compact" : "default"}
                 mode="date"
+                themeVariant={isDark ? "dark" : "light"}
                 onChange={(_event, date) => {
                   setEditDatePickerVisible(false);
 
@@ -803,7 +808,7 @@ export function WalletDetailScreen() {
           </>
         )}
 
-        <View className="gap-1 rounded-xl border border-slate-200 p-3">
+        <View className="gap-1 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
           <Text className="font-semibold">Người thanh toán</Text>
           {membersQuery.data?.map((member) => (
             <RadioItem
@@ -817,7 +822,7 @@ export function WalletDetailScreen() {
 
         {summaryQuery.data?.wallet.type === "shared" ? (
           <>
-            <View className="gap-1 rounded-xl border border-slate-200 p-3">
+            <View className="gap-1 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
               <Text className="font-semibold">Cách chia</Text>
               {splitOptions.map((option) => (
                 <RadioItem
@@ -832,7 +837,7 @@ export function WalletDetailScreen() {
               ))}
             </View>
 
-            <View className="gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <View className="gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950">
               <Text className="font-semibold">Phần chi của từng người</Text>
               {splitMembers.map((userId) => {
                 const suffix =
