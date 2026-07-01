@@ -6,6 +6,7 @@ import { Camera, LogOut, Save } from "lucide-react-native";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import { Screen } from "@/components/screen";
@@ -13,6 +14,7 @@ import { clearAuthToken, setStoredCurrentUser } from "@/lib/api-client";
 import { clearCurrentUser, setCurrentUser } from "@/store/auth-slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
+  tinoApiSlice,
   useChangePasswordMutation,
   useLogoutMutation,
   useUpdateProfileMutation,
@@ -25,7 +27,8 @@ export function ProfileScreen() {
   const [updateProfile, updateState] = useUpdateProfileMutation();
   const [changePassword, passwordState] = useChangePasswordMutation();
   const [uploadAvatar, uploadState] = useUploadAvatarMutation();
-  const [logout] = useLogoutMutation();
+  const [logout, logoutState] = useLogoutMutation();
+  const [logoutDialogVisible, setLogoutDialogVisible] = useState(false);
   const [displayName, setDisplayName] = useState(currentUser?.display_name || "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -110,17 +113,19 @@ export function ProfileScreen() {
   }
 
   async function handleLogout() {
-    await logout();
-    await clearAuthToken();
-    dispatch(clearCurrentUser());
-    router.replace("/login");
-  }
+    setLogoutDialogVisible(false);
 
-  function confirmLogout() {
-    Alert.alert("Đăng xuất?", "Bạn sẽ cần đăng nhập lại để tiếp tục.", [
-      { text: "Hủy", style: "cancel" },
-      { text: "Đăng xuất", style: "destructive", onPress: handleLogout },
-    ]);
+    try {
+      await Promise.race([
+        logout(),
+        new Promise((resolve) => setTimeout(resolve, 1500)),
+      ]);
+    } finally {
+      await clearAuthToken();
+      dispatch(clearCurrentUser());
+      dispatch(tinoApiSlice.util.resetApiState());
+      router.replace("/(auth)/login");
+    }
   }
 
   const initials = (currentUser?.display_name || currentUser?.email || "TE")
@@ -131,8 +136,9 @@ export function ProfileScreen() {
     .toUpperCase();
 
   return (
-    <Screen>
-      <View className="items-center gap-2 py-4">
+    <>
+      <Screen>
+        <View className="items-center gap-2 py-4">
         <Avatar initials={initials} uri={currentUser?.avatar_url} />
         <Text variant="headline">{currentUser?.display_name || "Hồ sơ"}</Text>
         <Text variant="muted">{currentUser?.email}</Text>
@@ -141,8 +147,13 @@ export function ProfileScreen() {
       <Card className="gap-3">
         <Text variant="title">Thông tin cá nhân</Text>
         <Input onChangeText={setDisplayName} placeholder="Tên hiển thị" value={displayName} />
-        <Input editable={false} placeholder="Email" value={currentUser?.email || ""} />
-        <Text variant="muted">Email đăng nhập hiện chưa thể thay đổi.</Text>
+        <Input
+          className="border-slate-200 bg-slate-100 text-slate-400"
+          editable={false}
+          placeholder="Email"
+          selectTextOnFocus={false}
+          value={currentUser?.email || ""}
+        />
         <Button loading={updateState.isLoading} onPress={handleUpdateProfile}>
           <Save color="#fff" size={16} />
           <Text className="font-semibold text-white">Lưu thay đổi</Text>
@@ -172,10 +183,40 @@ export function ProfileScreen() {
         </Button>
       </Card>
 
-      <Button onPress={confirmLogout} variant="outline">
-        <LogOut color="#dc2626" size={16} />
-        <Text className="font-semibold text-red-600">Đăng xuất</Text>
-      </Button>
-    </Screen>
+        <Button
+          className="mb-20"
+          onPress={() => setLogoutDialogVisible(true)}
+          variant="outline"
+        >
+          <LogOut color="#dc2626" size={16} />
+          <Text className="font-semibold text-red-600">Đăng xuất</Text>
+        </Button>
+      </Screen>
+
+      <Dialog
+        onOpenChange={setLogoutDialogVisible}
+        open={logoutDialogVisible}
+        title="Đăng xuất?"
+      >
+        <Text variant="muted">
+          Bạn sẽ cần đăng nhập lại để tiếp tục sử dụng Tino Expense.
+        </Text>
+        <View className="flex-row justify-end gap-2">
+          <Button
+            onPress={() => setLogoutDialogVisible(false)}
+            variant="ghost"
+          >
+            Hủy
+          </Button>
+          <Button
+            loading={logoutState.isLoading}
+            onPress={() => void handleLogout()}
+            variant="destructive"
+          >
+            Đăng xuất
+          </Button>
+        </View>
+      </Dialog>
+    </>
   );
 }

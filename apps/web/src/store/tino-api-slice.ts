@@ -127,10 +127,10 @@ export const tinoApiSlice = createApi({
     }),
     getExpenses: builder.query<
       PageableResponse<Expense>,
-      { walletId: string; page?: number; size?: number }
+      { walletId: string; page?: number; size?: number; month?: string }
     >({
-      queryFn: ({ walletId, page, size }) =>
-        runApi(() => tinoApi.listExpenses(walletId, page, size)),
+      queryFn: ({ walletId, page, size, month }) =>
+        runApi(() => tinoApi.listExpenses(walletId, page, size, month)),
       providesTags: (_result, _error, { walletId }) => [
         { type: "Expenses", id: walletId },
       ],

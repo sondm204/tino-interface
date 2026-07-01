@@ -112,13 +112,32 @@ export const tinoApi = {
     apiRequest<WalletMemberWithUser[]>(`/api/wallets/${walletId}/members`),
   getSummary: (walletId: string, month: string) =>
     apiRequest<WalletSummary>(`/api/wallets/${walletId}/summary?month=${month}`),
-  listExpenses: (walletId: string, page = 1, size = 20) =>
-    apiRequest<PageableResponse<Expense>>(
-      `/api/wallets/${walletId}/expenses?page=${page}&size=${size}`
-    ),
+  listExpenses: (walletId: string, page = 1, size = 20, month?: string) => {
+    const params = new URLSearchParams({
+      page: String(page),
+      size: String(size),
+    });
+
+    if (month) {
+      params.set("month", month);
+    }
+
+    return apiRequest<PageableResponse<Expense>>(
+      `/api/wallets/${walletId}/expenses?${params.toString()}`
+    );
+  },
   createExpense: (walletId: string, payload: CreateExpensePayload) =>
     apiRequest<Expense>(`/api/wallets/${walletId}/expenses`, {
       method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateExpense: (
+    walletId: string,
+    expenseId: string,
+    payload: Partial<CreateExpensePayload>
+  ) =>
+    apiRequest<Expense>(`/api/wallets/${walletId}/expenses/${expenseId}`, {
+      method: "PATCH",
       body: JSON.stringify(payload),
     }),
   deleteExpense: (walletId: string, expenseId: string) =>

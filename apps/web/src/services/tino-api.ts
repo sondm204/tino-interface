@@ -122,10 +122,20 @@ export const tinoApi = {
     }),
   getSummary: (walletId: string, month: string) =>
     apiRequest<WalletSummary>(`/api/wallets/${walletId}/summary?month=${month}`),
-  listExpenses: (walletId: string, page = 1, size = 20) =>
-    apiRequest<PageableResponse<Expense>>(
-      `/api/wallets/${walletId}/expenses?page=${page}&size=${size}`
-    ),
+  listExpenses: (walletId: string, page = 1, size = 20, month?: string) => {
+    const params = new URLSearchParams({
+      page: String(page),
+      size: String(size),
+    });
+
+    if (month) {
+      params.set("month", month);
+    }
+
+    return apiRequest<PageableResponse<Expense>>(
+      `/api/wallets/${walletId}/expenses?${params.toString()}`
+    );
+  },
   createExpense: (walletId: string, payload: CreateExpensePayload) =>
     apiRequest<Expense>(`/api/wallets/${walletId}/expenses`, {
       method: "POST",

@@ -1,3 +1,4 @@
+import { Children } from "react";
 import { ActivityIndicator, Pressable, type PressableProps } from "react-native";
 import { cva, type VariantProps } from "class-variance-authority";
 import { Text } from "@/components/ui/text";
@@ -55,10 +56,12 @@ export function Button({
       {...props}
     >
       {loading ? <ActivityIndicator color={textTone === "text-white" ? "#fff" : "#0f172a"} /> : null}
-      {typeof children === "string" ? (
-        <Text className={cn("font-semibold", textTone)}>{children}</Text>
-      ) : (
-        children
+      {Children.map(children, (child) =>
+        typeof child === "string" || typeof child === "number" ? (
+          <Text className={cn("font-semibold", textTone)}>{child}</Text>
+        ) : (
+          child
+        )
       )}
     </Pressable>
   );

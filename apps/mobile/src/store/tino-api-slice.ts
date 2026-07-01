@@ -111,10 +111,10 @@ export const tinoApiSlice = createApi({
     }),
     getExpenses: builder.query<
       PageableResponse<Expense>,
-      { walletId: string; page?: number; size?: number }
+      { walletId: string; page?: number; size?: number; month?: string }
     >({
-      queryFn: ({ walletId, page, size }) =>
-        runApi(() => tinoApi.listExpenses(walletId, page, size)),
+      queryFn: ({ walletId, page, size, month }) =>
+        runApi(() => tinoApi.listExpenses(walletId, page, size, month)),
       providesTags: (_result, _error, { walletId }) => [
         { type: "Expenses", id: walletId },
       ],
@@ -133,6 +133,22 @@ export const tinoApiSlice = createApi({
     >({
       queryFn: ({ walletId, payload }) =>
         runApi(() => tinoApi.createExpense(walletId, payload)),
+      invalidatesTags: (_result, _error, { walletId }) => [
+        { type: "Expenses", id: walletId },
+        { type: "Summary", id: walletId },
+        { type: "Wallets", id: "LIST" },
+      ],
+    }),
+    updateExpense: builder.mutation<
+      Expense,
+      {
+        walletId: string;
+        expenseId: string;
+        payload: Partial<CreateExpensePayload>;
+      }
+    >({
+      queryFn: ({ walletId, expenseId, payload }) =>
+        runApi(() => tinoApi.updateExpense(walletId, expenseId, payload)),
       invalidatesTags: (_result, _error, { walletId }) => [
         { type: "Expenses", id: walletId },
         { type: "Summary", id: walletId },
@@ -168,5 +184,6 @@ export const {
   useLogoutMutation,
   useRegisterMutation,
   useUpdateProfileMutation,
+  useUpdateExpenseMutation,
   useUploadAvatarMutation,
 } = tinoApiSlice;

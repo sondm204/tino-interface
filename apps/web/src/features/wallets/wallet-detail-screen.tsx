@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useMemo, useState } from "react";
+import { FormEvent, Fragment, useCallback, useMemo, useState } from "react";
 import { ArrowLeft, CalendarDays, Plus, ReceiptText, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/src/components/layout/app-shell";
@@ -60,7 +60,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
     error: expensesError,
     isLoading: expensesLoading,
   } = useGetExpensesQuery(
-    { walletId, page: 1, size: 20 },
+    { walletId, page: 1, size: 100, month },
     { skip: !authHydrated || !currentUser }
   );
   const {
@@ -77,7 +77,23 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
     () => walletMembers?.map((member) => member.user) ?? [],
     [walletMembers]
   );
-  const expenses = expensesData?.items ?? [];
+  const expenses = useMemo(
+    () =>
+      (expensesData?.items ?? []).filter((expense) =>
+        expense.expense_date.startsWith(month)
+      ),
+    [expensesData?.items, month]
+  );
+  const expenseGroups = useMemo(() => {
+    const groups = new Map<string, Expense[]>();
+
+    for (const expense of expenses) {
+      const date = expense.expense_date.slice(0, 10);
+      groups.set(date, [...(groups.get(date) ?? []), expense]);
+    }
+
+    return Array.from(groups.entries()).map(([date, items]) => ({ date, items }));
+  }, [expenses]);
   const wallet = summary?.wallet ?? null;
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -477,7 +493,6 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Khoản chi</TableHead>
-                      <TableHead>Ngày</TableHead>
                       <TableHead>Người trả</TableHead>
                       {wallet?.type === "shared" && <TableHead>Cách chia</TableHead>}
                       <TableHead className="text-right">Số tiền</TableHead>
@@ -485,53 +500,62 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {expenses.map((expense) => (
-                      <TableRow
-                        className="cursor-pointer"
-                        key={expense.id}
-                        onClick={() => setSelectedExpense(expense)}
-                      >
-                        <TableCell>
-                          <p className="font-semibold">{expense.title}</p>
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                            {expense.description || ""}
-                          </p>
-                        </TableCell>
-                        <TableCell className="text-zinc-600 dark:text-zinc-300">
-                          {formatDate(expense.expense_date)}
-                        </TableCell>
-                        <TableCell>
-                        {renderUserAvatar(expense.paid_by_user_id)}
-                        </TableCell>
-                        {wallet?.type === "shared" && (
-                          <TableCell className="text-zinc-600 dark:text-zinc-300">
-                            {splitMethodLabel(expense.split_method)}
+                    {expenseGroups.map((group) => (
+                      <Fragment key={group.date}>
+                        <TableRow className="hover:bg-transparent">
+                          <TableCell
+                            className="bg-zinc-50 py-2 text-xs font-semibold text-zinc-600 dark:bg-zinc-900/60 dark:text-zinc-300"
+                            colSpan={wallet?.type === "shared" ? 6 : 5}
+                          >
+                            {formatDate(group.date)}
                           </TableCell>
-                        )}
-                        <TableCell className="text-right font-semibold">
-                          {formatCurrency(expense.total_amount, expense.currency)}
-                        </TableCell>
-                        <TableCell onClick={(event) => event.stopPropagation()}>
-                          <ConfirmDialog
-                            confirmText="Xóa"
-                            description={`Khoản chi "${expense.title}" sẽ bị xóa khỏi ví.`}
-                            destructive
-                            onConfirm={() => handleDeleteExpense(expense.id)}
-                            title="Xóa khoản chi?"
-                            trigger={
-                              <Button
-                                aria-label="Xóa chi tiêu"
-                                className="ml-auto"
-                                size="icon"
-                                type="button"
-                                variant="ghost"
-                              >
-                                <Trash2 size={16} />
-                              </Button>
-                            }
-                          />
-                        </TableCell>
-                      </TableRow>
+                        </TableRow>
+                        {group.items.map((expense) => (
+                          <TableRow
+                            className="cursor-pointer"
+                            key={expense.id}
+                            onClick={() => setSelectedExpense(expense)}
+                          >
+                            <TableCell>
+                              <p className="font-semibold">{expense.title}</p>
+                              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                                {expense.description || ""}
+                              </p>
+                            </TableCell>
+                            <TableCell>
+                              {renderUserAvatar(expense.paid_by_user_id)}
+                            </TableCell>
+                            {wallet?.type === "shared" && (
+                              <TableCell className="text-zinc-600 dark:text-zinc-300">
+                                {splitMethodLabel(expense.split_method)}
+                              </TableCell>
+                            )}
+                            <TableCell className="text-right font-semibold">
+                              {formatCurrency(expense.total_amount, expense.currency)}
+                            </TableCell>
+                            <TableCell onClick={(event) => event.stopPropagation()}>
+                              <ConfirmDialog
+                                confirmText="Xóa"
+                                description={`Khoản chi "${expense.title}" sẽ bị xóa khỏi ví.`}
+                                destructive
+                                onConfirm={() => handleDeleteExpense(expense.id)}
+                                title="Xóa khoản chi?"
+                                trigger={
+                                  <Button
+                                    aria-label="Xóa chi tiêu"
+                                    className="ml-auto"
+                                    size="icon"
+                                    type="button"
+                                    variant="ghost"
+                                  >
+                                    <Trash2 size={16} />
+                                  </Button>
+                                }
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </Fragment>
                     ))}
                   </TableBody>
                 </Table>
