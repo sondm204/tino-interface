@@ -33,3 +33,19 @@ export function formatDate(value: string) {
 export function getCurrentMonth() {
   return new Date().toISOString().slice(0, 7);
 }
+
+export function formatMoneyInput(value: string | number | null | undefined) {
+  const digits = String(value ?? "").replace(/\D/g, "");
+
+  if (!digits) {
+    return "";
+  }
+
+  const normalized = digits.replace(/^0+(?=\d)/, "");
+  return normalized.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+export function parseMoneyInput(value: string | number | null | undefined) {
+  const normalized = String(value ?? "").replace(/,/g, "");
+  return normalized ? Number(normalized) : 0;
+}

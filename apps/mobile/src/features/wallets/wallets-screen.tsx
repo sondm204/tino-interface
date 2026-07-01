@@ -1,8 +1,9 @@
 ﻿import { useState } from "react";
-import { Alert, FlatList, Pressable, RefreshControl, View } from "react-native";
+import { FlatList, Pressable, RefreshControl, View } from "react-native";
 import { router } from "expo-router";
 import { Plus } from "lucide-react-native";
 import { Button } from "@/components/ui/button";
+import { useAlertDialog } from "@/components/ui/alert-dialog";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ import {
 } from "@/store/tino-api-slice";
 
 export function WalletsScreen() {
+  const { alert } = useAlertDialog();
   const { data, isFetching, isLoading, refetch } = useGetWalletsQuery({
     page: 1,
     size: 50,
@@ -29,7 +31,7 @@ export function WalletsScreen() {
 
   async function handleCreateWallet() {
     if (!name.trim()) {
-      Alert.alert("Thiếu thông tin", "Vui lòng nhập tên ví.");
+      alert("Thiếu thông tin", "Vui lòng nhập tên ví.");
       return;
     }
 
@@ -41,7 +43,7 @@ export function WalletsScreen() {
     });
 
     if ("error" in result) {
-      Alert.alert("Không thể tạo ví", result.error?.message || "Đã có lỗi xảy ra.");
+      alert("Không thể tạo ví", result.error?.message || "Đã có lỗi xảy ra.");
       return;
     }
 
@@ -49,7 +51,7 @@ export function WalletsScreen() {
     setName("");
     setDescription("");
     setType("personal");
-    Alert.alert("Thành công", "Đã tạo ví mới.");
+    alert("Thành công", "Đã tạo ví mới.");
   }
 
   if (isLoading) {

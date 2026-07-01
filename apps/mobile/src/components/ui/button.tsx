@@ -5,7 +5,7 @@ import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "min-h-11 flex-row items-center justify-center gap-2 rounded-xl px-4 active:opacity-80",
+  "min-h-11 shrink-0 flex-row items-center justify-center gap-2 rounded-xl px-4 active:opacity-80",
   {
     variants: {
       variant: {
@@ -58,7 +58,12 @@ export function Button({
       {loading ? <ActivityIndicator color={textTone === "text-white" ? "#fff" : "#0f172a"} /> : null}
       {Children.map(children, (child) =>
         typeof child === "string" || typeof child === "number" ? (
-          <Text className={cn("font-semibold", textTone)}>{child}</Text>
+          <Text
+            className={cn("shrink-0 font-semibold", textTone)}
+            numberOfLines={1}
+          >
+            {child}
+          </Text>
         ) : (
           child
         )

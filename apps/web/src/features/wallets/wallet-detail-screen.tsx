@@ -28,7 +28,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { formatCurrency, formatDate } from "@/src/lib/format";
+import {
+  formatCurrency,
+  formatDate,
+  formatMoneyInput,
+  parseMoneyInput,
+} from "@/src/lib/format";
 import { settlementStatusLabel, splitMethodLabel } from "@/src/lib/labels";
 import { useAppSelector } from "@/src/store/hooks";
 import {
@@ -37,11 +42,38 @@ import {
   useGetExpensesQuery,
   useGetWalletMembersQuery,
   useGetSummaryQuery,
+  useUpdateExpenseMutation,
 } from "@/src/store/tino-api-slice";
 import type { Expense, ExpenseSplit } from "@/src/types/domain";
 
 function currentMonth() {
   return new Date().toISOString().slice(0, 7);
+}
+
+function getSplitAmount(
+  method: "equal" | "amount" | "percentage" | "shares",
+  userId: string,
+  totalAmount: number,
+  values: Record<string, string>,
+  memberIds: string[]
+) {
+  if (method === "equal") {
+    return totalAmount / Math.max(memberIds.length, 1);
+  }
+
+  const value =
+    method === "amount"
+      ? parseMoneyInput(values[userId])
+      : Number(values[userId] || 0);
+
+  if (method === "amount") return value;
+  if (method === "percentage") return (totalAmount * value) / 100;
+
+  const totalShares = memberIds.reduce(
+    (total, memberId) => total + Number(values[memberId] || 0),
+    0
+  );
+  return totalShares > 0 ? (totalAmount * value) / totalShares : 0;
 }
 
 export function WalletDetailScreen({ walletId }: { walletId: string }) {
@@ -72,6 +104,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
     { skip: !authHydrated || !currentUser }
   );
   const [createExpense, createExpenseState] = useCreateExpenseMutation();
+  const [updateExpense, updateExpenseState] = useUpdateExpenseMutation();
   const [deleteExpense] = useDeleteExpenseMutation();
   const users = useMemo(
     () => walletMembers?.map((member) => member.user) ?? [],
@@ -102,6 +135,16 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
   const [splitMethod, setSplitMethod] = useState<"equal" | "amount" | "percentage" | "shares">("equal");
   const [splitValues, setSplitValues] = useState<Record<string, string>>({});
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editAmount, setEditAmount] = useState("");
+  const [editExpenseDate, setEditExpenseDate] = useState("");
+  const [editPaidByUserId, setEditPaidByUserId] = useState("");
+  const [editSplitMethod, setEditSplitMethod] =
+    useState<"equal" | "amount" | "percentage" | "shares">("equal");
+  const [editSplitValues, setEditSplitValues] = useState<Record<string, string>>(
+    {}
+  );
   const [formError, setFormError] = useState<string | null>(null);
   const queryError = [membersError, expensesError, summaryError]
     .map((error) =>
@@ -178,10 +221,14 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
   const splitValueTotal = useMemo(
     () =>
       splitMembers.reduce(
-        (sum, userId) => sum + Number(splitValues[userId] || 0),
+        (sum, userId) =>
+          sum +
+          (splitMethod === "amount"
+            ? parseMoneyInput(splitValues[userId])
+            : Number(splitValues[userId] || 0)),
         0
       ),
-    [splitMembers, splitValues]
+    [splitMembers, splitMethod, splitValues]
   );
 
   function buildExpenseSplits(totalAmount: number): ExpenseSplit[] | undefined {
@@ -195,7 +242,10 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
 
     const values = splitMembers.map((userId) => ({
       userId,
-      value: Number(splitValues[userId] || 0),
+      value:
+        splitMethod === "amount"
+          ? parseMoneyInput(splitValues[userId])
+          : Number(splitValues[userId] || 0),
     }));
 
     if (values.some((item) => !Number.isFinite(item.value) || item.value < 0)) {
@@ -259,7 +309,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
     setFormError(null);
 
     try {
-      const totalAmount = Number(amount);
+      const totalAmount = parseMoneyInput(amount);
       const splits = buildExpenseSplits(totalAmount);
       await createExpense({
         walletId: wallet.id,
@@ -313,6 +363,111 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
           : "Không thể xóa chi tiêu";
       setFormError(message);
       toast.error(message);
+    }
+  }
+
+  function openExpenseEditor(expense: Expense) {
+    setSelectedExpense(expense);
+    setEditTitle(expense.title);
+    setEditDescription(expense.description || "");
+    setEditAmount(formatMoneyInput(expense.total_amount));
+    setEditExpenseDate(expense.expense_date.slice(0, 10));
+    setEditPaidByUserId(expense.paid_by_user_id);
+    setEditSplitMethod(expense.split_method);
+    setEditSplitValues(
+      Object.fromEntries(
+        (expense.splits ?? []).map((split) => [
+          split.user_id,
+          expense.split_method === "amount"
+            ? formatMoneyInput(split.amount)
+            : expense.split_method === "percentage"
+              ? String(split.percentage ?? "")
+              : String(split.shares ?? ""),
+        ])
+      )
+    );
+  }
+
+  async function handleUpdateSelectedExpense(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedExpense || !wallet) {
+      return;
+    }
+
+    const totalAmount = parseMoneyInput(editAmount);
+
+    if (!editTitle.trim() || totalAmount <= 0 || !editPaidByUserId) {
+      toast.error("Vui lòng nhập đầy đủ tên, số tiền và người thanh toán.");
+      return;
+    }
+
+    try {
+      let splits: ExpenseSplit[] = [];
+
+      if (wallet.type === "shared" && editSplitMethod !== "equal") {
+        const values = splitMembers.map((userId) => ({
+          userId,
+          value:
+            editSplitMethod === "amount"
+              ? parseMoneyInput(editSplitValues[userId])
+              : Number(editSplitValues[userId] || 0),
+        }));
+
+        if (
+          values.some((item) => !Number.isFinite(item.value) || item.value < 0) ||
+          values.every((item) => item.value === 0)
+        ) {
+          throw new Error(
+            "Vui lòng nhập giá trị hợp lệ cho ít nhất một thành viên."
+          );
+        }
+
+        const total = values.reduce((sum, item) => sum + item.value, 0);
+
+        if (
+          editSplitMethod === "amount" &&
+          Math.abs(total - totalAmount) > 0.01
+        ) {
+          throw new Error("Tổng số tiền chia phải bằng tổng khoản chi.");
+        }
+
+        if (
+          editSplitMethod === "percentage" &&
+          Math.abs(total - 100) > 0.01
+        ) {
+          throw new Error("Tổng phần trăm phải bằng 100%.");
+        }
+
+        splits = values.map((item) => ({
+          amount:
+            editSplitMethod === "amount"
+              ? item.value
+              : (totalAmount * item.value) / total,
+          percentage:
+            editSplitMethod === "percentage" ? item.value : undefined,
+          shares: editSplitMethod === "shares" ? item.value : undefined,
+          user_id: item.userId,
+        }));
+      }
+
+      await updateExpense({
+        walletId: wallet.id,
+        expenseId: selectedExpense.id,
+        payload: {
+          description: editDescription.trim() || null,
+          expense_date: editExpenseDate,
+          paid_by_user_id: editPaidByUserId,
+          split_method: editSplitMethod,
+          splits,
+          title: editTitle.trim(),
+          total_amount: totalAmount,
+        },
+      }).unwrap();
+      setSelectedExpense(null);
+      toast.success("Cập nhật chi tiêu thành công");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không thể cập nhật chi tiêu");
     }
   }
 
@@ -514,7 +669,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
                           <TableRow
                             className="cursor-pointer"
                             key={expense.id}
-                            onClick={() => setSelectedExpense(expense)}
+                            onClick={() => openExpenseEditor(expense)}
                           >
                             <TableCell>
                               <p className="font-semibold">{expense.title}</p>
@@ -696,10 +851,13 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
                 <TextField
                   label="Số tiền"
                   min="1"
-                  onChange={(event) => setAmount(event.target.value)}
+                  inputMode="numeric"
+                  onChange={(event) =>
+                    setAmount(formatMoneyInput(event.target.value))
+                  }
                   placeholder="0"
                   required
-                  type="number"
+                  type="text"
                   value={amount}
                 />
                 <TextField
@@ -751,15 +909,21 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
                             <input
                               className="h-9 min-w-0 rounded-md border border-zinc-200 bg-white px-3 text-right text-sm outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950"
                               min="0"
-                              onChange={(event) =>
-                                setSplitValues((current) => ({
-                                  ...current,
-                                  [userId]: event.target.value,
-                                }))
-                              }
+                               inputMode={
+                                 splitMethod === "amount" ? "numeric" : "decimal"
+                               }
+                               onChange={(event) =>
+                                 setSplitValues((current) => ({
+                                   ...current,
+                                   [userId]:
+                                     splitMethod === "amount"
+                                       ? formatMoneyInput(event.target.value)
+                                       : event.target.value,
+                                 }))
+                               }
                               placeholder="0"
                               step="0.01"
-                              type="number"
+                               type="text"
                               value={splitValues[userId] ?? ""}
                             />
                             <span className="w-10 text-xs text-zinc-500 dark:text-zinc-400">
@@ -799,17 +963,162 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
         }}
         open={selectedExpense !== null}
       >
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           {selectedExpense ? (
-            <>
+            <form className="space-y-5" onSubmit={handleUpdateSelectedExpense}>
               <DialogHeader>
-                <DialogTitle>{selectedExpense.title}</DialogTitle>
+                <DialogTitle>Chỉnh sửa chi tiêu</DialogTitle>
                 <DialogDescription>
-                  {selectedExpense.description || "Chi tiết khoản chi trong ví."}
+                  Cập nhật thông tin và phần chia của khoản chi.
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-4">
+                <TextField
+                  label="Tên khoản chi"
+                  onChange={(event) => setEditTitle(event.target.value)}
+                  required
+                  value={editTitle}
+                />
+                <TextAreaField
+                  label="Mô tả"
+                  onChange={(event) => setEditDescription(event.target.value)}
+                  value={editDescription}
+                />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <TextField
+                    inputMode="numeric"
+                    label="Số tiền"
+                    onChange={(event) =>
+                      setEditAmount(formatMoneyInput(event.target.value))
+                    }
+                    required
+                    type="text"
+                    value={editAmount}
+                  />
+                  <TextField
+                    label="Ngày chi"
+                    onChange={(event) => setEditExpenseDate(event.target.value)}
+                    required
+                    type="date"
+                    value={editExpenseDate}
+                  />
+                </div>
+                <SelectField
+                  label="Người thanh toán"
+                  onValueChange={setEditPaidByUserId}
+                  options={users.map((user) => ({
+                    label: user.display_name || user.email,
+                    value: user.id,
+                  }))}
+                  value={editPaidByUserId}
+                />
+                {wallet?.type === "shared" ? (
+                  <>
+                    <SelectField
+                      label="Cách chia"
+                      onValueChange={(value) => {
+                        setEditSplitMethod(
+                          value as "equal" | "amount" | "percentage" | "shares"
+                        );
+                        setEditSplitValues({});
+                      }}
+                      options={[
+                        { value: "equal", label: "Chia đều" },
+                        { value: "amount", label: "Theo số tiền" },
+                        { value: "percentage", label: "Theo phần trăm" },
+                        { value: "shares", label: "Theo phần" },
+                      ]}
+                      value={editSplitMethod}
+                    />
+                    <div className="space-y-2 rounded-md border border-zinc-200 p-3 dark:border-zinc-800">
+                      <p className="text-sm font-semibold">Phần chi của từng người</p>
+                      {splitMembers.map((userId) => (
+                        <div
+                          className="grid grid-cols-[minmax(0,1fr)_190px] items-center gap-3"
+                          key={userId}
+                        >
+                          <p className="truncate text-sm font-medium">
+                            {getUserName(userId)}
+                          </p>
+                          {editSplitMethod === "equal" ? (
+                            <p className="text-right text-xs font-semibold text-blue-600">
+                              Phải chịu:{" "}
+                              {formatCurrency(
+                                getSplitAmount(
+                                  editSplitMethod,
+                                  userId,
+                                  parseMoneyInput(editAmount),
+                                  editSplitValues,
+                                  splitMembers
+                                ),
+                                wallet.currency
+                              )}
+                            </p>
+                          ) : (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  className="h-9 min-w-0 flex-1 rounded-md border border-zinc-200 bg-white px-3 text-right text-sm outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950"
+                                  inputMode={
+                                    editSplitMethod === "amount"
+                                      ? "numeric"
+                                      : "decimal"
+                                  }
+                                  onChange={(event) =>
+                                    setEditSplitValues((current) => ({
+                                      ...current,
+                                      [userId]:
+                                        editSplitMethod === "amount"
+                                          ? formatMoneyInput(event.target.value)
+                                          : event.target.value,
+                                    }))
+                                  }
+                                  placeholder="0"
+                                  type="text"
+                                  value={editSplitValues[userId] || ""}
+                                />
+                                <span className="w-10 text-xs text-zinc-500">
+                                  {editSplitMethod === "amount"
+                                    ? wallet.currency
+                                    : editSplitMethod === "percentage"
+                                      ? "%"
+                                      : "phần"}
+                                </span>
+                              </div>
+                              <p className="text-right text-xs font-semibold text-blue-600">
+                                Phải chịu:{" "}
+                                {formatCurrency(
+                                  getSplitAmount(
+                                    editSplitMethod,
+                                    userId,
+                                    parseMoneyInput(editAmount),
+                                    editSplitValues,
+                                    splitMembers
+                                  ),
+                                  wallet.currency
+                                )}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : null}
+              </div>
+
+              <Button
+                className="w-full"
+                disabled={updateExpenseState.isLoading}
+                type="submit"
+              >
+                {updateExpenseState.isLoading
+                  ? "Đang lưu..."
+                  : "Lưu thay đổi"}
+              </Button>
+
+              <div className="hidden grid gap-3 sm:grid-cols-2">
                 <div className="rounded-md border border-zinc-200 p-3 dark:border-zinc-800">
                   <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                     Người trả
@@ -850,7 +1159,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
                 </div>
               </div>
 
-              <div className="space-y-3">
+              <div className="hidden space-y-3">
                 <div>
                   <p className="text-sm font-semibold">Phần chia</p>
                   <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
@@ -889,7 +1198,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
                   ))}
                 </div>
               </div>
-            </>
+            </form>
           ) : null}
         </DialogContent>
       </Dialog>

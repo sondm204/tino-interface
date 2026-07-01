@@ -1,8 +1,9 @@
 ﻿import { useState } from "react";
-import { Alert, View } from "react-native";
+import { View } from "react-native";
 import { Link, router } from "expo-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useAlertDialog } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import {
@@ -19,6 +20,7 @@ import {
 } from "@/store/tino-api-slice";
 
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
+  const { alert } = useAlertDialog();
   const dispatch = useAppDispatch();
   const [login, loginState] = useLoginMutation();
   const [register, registerState] = useRegisterMutation();
@@ -59,7 +61,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
 
   async function resetLocalSession() {
     await clearAuthToken();
-    Alert.alert("Đã xóa", "Phiên đăng nhập local đã được xóa.");
+    alert("Đã xóa", "Phiên đăng nhập local đã được xóa.");
   }
 
   return (

@@ -1,4 +1,4 @@
-import { Modal, Pressable, View } from "react-native";
+import { Modal, Pressable, ScrollView, useWindowDimensions } from "react-native";
 import { FlyIn } from "@/components/ui/fly-in";
 import { Text } from "@/components/ui/text";
 
@@ -10,6 +10,8 @@ type DialogProps = {
 };
 
 export function Dialog({ children, onOpenChange, open, title }: DialogProps) {
+  const { height } = useWindowDimensions();
+
   return (
     <Modal animationType="none" onRequestClose={() => onOpenChange(false)} transparent visible={open}>
       <Pressable className="flex-1 justify-end bg-black/40" onPress={() => onOpenChange(false)}>
@@ -19,7 +21,14 @@ export function Dialog({ children, onOpenChange, open, title }: DialogProps) {
             onPress={(event) => event.stopPropagation()}
           >
             {title ? <Text className="mb-4" variant="title">{title}</Text> : null}
-            <View className="gap-3">{children}</View>
+            <ScrollView
+              contentContainerClassName="gap-3"
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              style={{ maxHeight: height * 0.75 }}
+            >
+              {children}
+            </ScrollView>
           </Pressable>
         </FlyIn>
       </Pressable>

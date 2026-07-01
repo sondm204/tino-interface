@@ -1,9 +1,10 @@
 ﻿import { useEffect, useState } from "react";
-import { Alert, View } from "react-native";
+import { View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { Camera, LogOut, Save } from "lucide-react-native";
 import { Avatar } from "@/components/ui/avatar";
+import { useAlertDialog } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
@@ -22,6 +23,7 @@ import {
 } from "@/store/tino-api-slice";
 
 export function ProfileScreen() {
+  const { alert } = useAlertDialog();
   const dispatch = useAppDispatch();
   const currentUser = useAppSelector((state) => state.auth.user);
   const [updateProfile, updateState] = useUpdateProfileMutation();
@@ -39,25 +41,25 @@ export function ProfileScreen() {
 
   async function handleUpdateProfile() {
     if (!displayName.trim()) {
-      Alert.alert("Thiếu thông tin", "Tên hiển thị không được để trống.");
+      alert("Thiếu thông tin", "Tên hiển thị không được để trống.");
       return;
     }
 
     const result = await updateProfile({ display_name: displayName.trim() });
 
     if ("error" in result) {
-      Alert.alert("Không thể cập nhật", result.error?.message || "Đã có lỗi xảy ra.");
+      alert("Không thể cập nhật", result.error?.message || "Đã có lỗi xảy ra.");
       return;
     }
 
     await setStoredCurrentUser(result.data);
     dispatch(setCurrentUser(result.data));
-    Alert.alert("Thành công", "Đã cập nhật hồ sơ.");
+    alert("Thành công", "Đã cập nhật hồ sơ.");
   }
 
   async function handleChangePassword() {
     if (!currentPassword || !newPassword) {
-      Alert.alert("Thiếu thông tin", "Vui lòng nhập đầy đủ mật khẩu.");
+      alert("Thiếu thông tin", "Vui lòng nhập đầy đủ mật khẩu.");
       return;
     }
 
@@ -67,20 +69,20 @@ export function ProfileScreen() {
     });
 
     if ("error" in result) {
-      Alert.alert("Không thể đổi mật khẩu", result.error?.message || "Đã có lỗi xảy ra.");
+      alert("Không thể đổi mật khẩu", result.error?.message || "Đã có lỗi xảy ra.");
       return;
     }
 
     setCurrentPassword("");
     setNewPassword("");
-    Alert.alert("Thành công", "Đã đổi mật khẩu.");
+    alert("Thành công", "Đã đổi mật khẩu.");
   }
 
   async function handlePickAvatar() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
-      Alert.alert("Cần cấp quyền", "Bạn cần cấp quyền truy cập thư viện ảnh.");
+      alert("Cần cấp quyền", "Bạn cần cấp quyền truy cập thư viện ảnh.");
       return;
     }
 
@@ -103,13 +105,13 @@ export function ProfileScreen() {
     });
 
     if ("error" in uploadResult) {
-      Alert.alert("Không thể upload ảnh", uploadResult.error?.message || "Đã có lỗi xảy ra.");
+      alert("Không thể upload ảnh", uploadResult.error?.message || "Đã có lỗi xảy ra.");
       return;
     }
 
     await setStoredCurrentUser(uploadResult.data.user);
     dispatch(setCurrentUser(uploadResult.data.user));
-    Alert.alert("Thành công", "Đã cập nhật ảnh đại diện.");
+    alert("Thành công", "Đã cập nhật ảnh đại diện.");
   }
 
   async function handleLogout() {
@@ -184,12 +186,17 @@ export function ProfileScreen() {
       </Card>
 
         <Button
-          className="mb-20"
+          className="mb-20 w-full"
           onPress={() => setLogoutDialogVisible(true)}
           variant="outline"
         >
           <LogOut color="#dc2626" size={16} />
-          <Text className="font-semibold text-red-600">Đăng xuất</Text>
+          <Text
+            className="shrink-0 font-semibold text-red-600"
+            numberOfLines={1}
+          >
+            Đăng xuất
+          </Text>
         </Button>
       </Screen>
 

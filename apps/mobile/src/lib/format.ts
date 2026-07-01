@@ -1,1 +1,7 @@
-﻿export { formatCurrency, formatDate, getCurrentMonth } from "@tino/shared/format";
+export {
+  formatCurrency,
+  formatDate,
+  formatMoneyInput,
+  getCurrentMonth,
+  parseMoneyInput,
+} from "@tino/shared/format";
