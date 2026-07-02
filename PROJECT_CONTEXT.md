@@ -28,6 +28,8 @@ Phase 1 should support:
 - Seeing monthly totals per wallet.
 - Seeing how much each member paid in a selected month.
 - Seeing a simple split summary for who should reimburse whom.
+- Linking a Tino account and wallet to Telegram.
+- Creating equal-split expenses from Telegram group messages.
 
 Phase 1 does not need:
 
@@ -114,6 +116,42 @@ The settlement algorithm should start simple and deterministic:
 - Members with positive balances should receive money.
 - Members with negative balances should pay money.
 - Generate transfers until balances are close to zero.
+
+### Telegram Expense Entry
+
+Telegram is an additional client for Phase 1. The bot lives in the separate
+`E:\Tino\tino-telebot` project and always calls the Express backend; it must
+never access Supabase directly.
+
+Account linking flow:
+
+1. An authenticated Tino user requests a one-time code through
+   `POST /api/telegram/link-code`.
+2. The user sends `/link CODE` to Tino Telegram Bot.
+3. The backend maps `telegram_user_id` to the existing Tino `user_id`.
+
+Wallet connection flow:
+
+1. A wallet owner requests a one-time code through
+   `POST /api/telegram/wallets/:walletId/connect-code`.
+2. The same linked user sends `/connect CODE` inside a Telegram group.
+3. The bot verifies that the sender is a Telegram group administrator.
+4. The backend verifies that the linked Tino user is the wallet owner.
+5. The backend maps `telegram_chat_id` to `wallet_id`.
+
+Expense flow:
+
+- A linked wallet member sends a message such as `rau, thịt 50k`.
+- The bot parses the title and amount and displays a confirmation message.
+- Only the original sender can confirm the pending expense.
+- The Telegram sender becomes both `paid_by_user_id` and
+  `created_by_user_id`.
+- The connected group determines `wallet_id`.
+- Telegram-created expenses currently use `split_method = equal`.
+- The backend rechecks account linking, chat connection, and active wallet
+  membership before every write.
+- Pending bot confirmations expire after five minutes and currently live in
+  bot process memory.
 
 ## Suggested Domain Model
 
@@ -213,6 +251,45 @@ This is the canonical database model for future implementation. Feature work sho
 - `settled_at`
 - `created_at`
 
+### Telegram Account
+
+- `id`
+- `user_id`
+- `telegram_user_id`
+- `telegram_username`
+- `telegram_display_name`
+- `linked_at`
+- `updated_at`
+
+### Telegram Chat Wallet
+
+- `id`
+- `telegram_chat_id`
+- `wallet_id`
+- `telegram_chat_title`
+- `connected_by_user_id`
+- `connected_at`
+- `updated_at`
+
+### Telegram Link Code
+
+- `id`
+- `code`
+- `user_id`
+- `expires_at`
+- `consumed_at`
+- `created_at`
+
+### Telegram Wallet Connect Code
+
+- `id`
+- `code`
+- `wallet_id`
+- `created_by_user_id`
+- `expires_at`
+- `consumed_at`
+- `created_at`
+
 Categories are wallet-scoped through `wallet_id`. Attachments belong to expenses. Settlements are persisted monthly or per selected period after the summary calculation is generated.
 
 ## Tech Stack
@@ -231,6 +308,7 @@ Planned apps:
 - Web: Next.js.
 - Mobile: React Native with Expo.
 - Backend: Express.js.
+- Telegram bot: Node.js, TypeScript, and Telegraf.
 
 Database:
 
@@ -258,7 +336,11 @@ with RTK Query, shadcn/ui components, dark mode, skeleton states, and toast feed
 
 The Express backend lives in the separate `E:\Tino\tino-service` repository. It
 currently owns authentication, users, wallets, wallet members, expenses, summaries,
-and profile avatar upload.
+profile avatar upload, expense attachments, and Telegram integration APIs.
+
+The Telegram bot lives in the separate `E:\Tino\tino-telebot` repository. It
+supports account linking, wallet-group connection, wallet inspection, Vietnamese
+expense amount parsing, and confirmation before creating an expense.
 
 ## Workspace Commands
 
@@ -352,6 +434,22 @@ Recommended API surface for Phase 1:
 - `PATCH /wallets/:walletId/expenses/:expenseId`
 - `DELETE /wallets/:walletId/expenses/:expenseId`
 - `GET /wallets/:walletId/summary?month=YYYY-MM`
+- `POST /api/telegram/link-code`
+- `POST /api/telegram/wallets/:walletId/connect-code`
+- `POST /bot/telegram/link`
+- `POST /bot/telegram/connect`
+- `POST /bot/telegram/context`
+- `POST /bot/telegram/expenses`
+
+The `/api/telegram/*` endpoints use the normal user bearer access token. The
+`/bot/telegram/*` endpoints are server-to-server APIs authenticated with the
+`X-Tino-Bot-Secret` header. The shared secret is configured as
+`TELEGRAM_BOT_SERVICE_SECRET` in `tino-service` and
+`TINO_BOT_SERVICE_SECRET` in `tino-telebot`.
+
+Telegram link and wallet connection codes are one-time codes with a ten-minute
+expiry. Creating a new code invalidates the previous unused code of the same
+type.
 
 ## Supabase Usage
 
@@ -379,8 +477,9 @@ If backend database access is implemented only with a server-side Postgres drive
 
 ## Object Storage
 
-User avatars are uploaded by the Express backend through an S3-compatible storage
-adapter using the AWS SDK. The same implementation supports MinIO and AWS S3.
+User avatars and expense attachment images are uploaded by the Express backend
+through an S3-compatible storage adapter using the AWS SDK. The same
+implementation supports MinIO and AWS S3.
 
 Backend environment variables:
 
@@ -392,9 +491,9 @@ Backend environment variables:
 - `S3_FORCE_PATH_STYLE`: normally `true` for local MinIO.
 - `S3_PUBLIC_BASE_URL`: public bucket/base URL used to build avatar URLs.
 
-The avatar bucket must allow public reads through its bucket policy or be exposed
-through a public CDN/base URL. Uploads are limited to 5 MB and accept JPEG, PNG,
-WebP, and GIF.
+The bucket must allow public reads through its bucket policy or be exposed
+through a public CDN/base URL. Avatar uploads are limited to 5 MB and expense
+images to 10 MB. JPEG, PNG, WebP, and GIF are accepted.
 
 ## Coding Conventions
 

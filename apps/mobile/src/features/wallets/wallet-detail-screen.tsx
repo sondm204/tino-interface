@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import * as Clipboard from "expo-clipboard";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import {
@@ -17,8 +18,10 @@ import {
   CalendarDays,
   ChevronDown,
   ChevronUp,
+  Copy,
   ImagePlus,
   Plus,
+  Send,
   Trash2,
   X,
 } from "lucide-react-native";
@@ -41,6 +44,7 @@ import { splitMethodLabel } from "@/lib/labels";
 import { useAppSelector } from "@/store/hooks";
 import {
   useCreateExpenseMutation,
+  useCreateTelegramWalletConnectCodeMutation,
   useDeleteExpenseAttachmentMutation,
   useDeleteExpenseMutation,
   useGetExpensesQuery,
@@ -49,6 +53,7 @@ import {
   useUpdateExpenseMutation,
   useUploadExpenseAttachmentMutation,
 } from "@/store/tino-api-slice";
+import type { TelegramCode } from "@/services/tino-api";
 import type { Attachment, Expense, ExpenseSplit } from "@/types/domain";
 
 const splitOptions = [
@@ -124,6 +129,7 @@ export function WalletDetailScreen() {
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [previewAttachment, setPreviewAttachment] =
     useState<Attachment | null>(null);
+  const [telegramCode, setTelegramCode] = useState<TelegramCode | null>(null);
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [editTitle, setEditTitle] = useState("");
@@ -150,6 +156,8 @@ export function WalletDetailScreen() {
   const membersQuery = useGetWalletMembersQuery(walletId, { skip: !walletId });
   const summaryQuery = useGetSummaryQuery({ walletId, month }, { skip: !walletId });
   const [createExpense, createState] = useCreateExpenseMutation();
+  const [createTelegramWalletConnectCode, telegramCodeState] =
+    useCreateTelegramWalletConnectCodeMutation();
   const [uploadExpenseAttachment, uploadAttachmentState] =
     useUploadExpenseAttachmentMutation();
   const [deleteExpenseAttachment, deleteAttachmentState] =
@@ -571,6 +579,29 @@ export function WalletDetailScreen() {
     setSummaryExpanded((expanded) => !expanded);
   }
 
+  async function handleCreateTelegramWalletCode() {
+    if (!walletId) return;
+
+    try {
+      setTelegramCode(
+        await createTelegramWalletConnectCode(walletId).unwrap()
+      );
+    } catch (error) {
+      alert(
+        "Không thể tạo mã",
+        error instanceof Error
+          ? error.message
+          : "Không thể tạo mã kết nối Telegram."
+      );
+    }
+  }
+
+  async function handleCopyTelegramWalletCode() {
+    if (!telegramCode) return;
+    await Clipboard.setStringAsync(`/connect ${telegramCode.code}`);
+    alert("Đã sao chép", "Lệnh kết nối Telegram đã được sao chép.");
+  }
+
   if (expensesQuery.isLoading || summaryQuery.isLoading) {
     return <LoadingState />;
   }
@@ -681,6 +712,57 @@ export function WalletDetailScreen() {
                 </>
               ) : null}
           </Card>
+
+          {summaryQuery.data?.wallet.owner_id === currentUser?.id ? (
+            <Card className="gap-3">
+              <View className="flex-row items-center gap-2">
+                <Send color="#2563eb" size={18} />
+                <Text variant="title">Kết nối Telegram</Text>
+              </View>
+              {telegramCode ? (
+                <View className="gap-1 rounded-xl bg-slate-50 p-3 dark:bg-slate-950">
+                  <Text variant="small">Gửi lệnh này trong Telegram group</Text>
+                  <Text className="font-mono text-lg font-bold tracking-widest">
+                    /connect {telegramCode.code}
+                  </Text>
+                  <Text variant="small">
+                    Hết hạn:{" "}
+                    {new Intl.DateTimeFormat("vi-VN", {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    }).format(new Date(telegramCode.expires_at))}
+                  </Text>
+                </View>
+              ) : (
+                <Text variant="muted">
+                  Tạo mã một lần để kết nối ví này với Telegram group.
+                </Text>
+              )}
+              <View className="flex-row gap-2">
+                {telegramCode ? (
+                  <Button
+                    className="flex-1"
+                    onPress={() => void handleCopyTelegramWalletCode()}
+                    variant="outline"
+                  >
+                    <Copy
+                      color={isDark ? "#f8fafc" : "#0f172a"}
+                      size={16}
+                    />
+                    Sao chép
+                  </Button>
+                ) : null}
+                <Button
+                  className="flex-1"
+                  loading={telegramCodeState.isLoading}
+                  onPress={() => void handleCreateTelegramWalletCode()}
+                >
+                  <Send color="#fff" size={16} />
+                  {telegramCode ? "Tạo mã mới" : "Tạo mã"}
+                </Button>
+              </View>
+            </Card>
+          ) : null}
         </View>
 
         <ScrollView

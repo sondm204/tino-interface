@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Camera, KeyRound, Save, UserRound } from "lucide-react";
+import { Camera, Copy, KeyRound, Save, Send, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/src/components/layout/app-shell";
 import { TextField } from "@/src/components/ui/field";
@@ -25,10 +25,12 @@ import { setCurrentUser } from "@/src/store/auth-slice";
 import { useAppDispatch, useAppSelector } from "@/src/store/hooks";
 import {
   useChangePasswordMutation,
+  useCreateTelegramLinkCodeMutation,
   useUpdateProfileMutation,
   useUploadAvatarMutation,
 } from "@/src/store/tino-api-slice";
 import type { User } from "@/src/types/domain";
+import type { TelegramCode } from "@/src/services/tino-api";
 
 function getErrorMessage(error: unknown, fallback: string) {
   return typeof error === "object" &&
@@ -50,6 +52,9 @@ export function ProfileScreen() {
   const [updateProfile, profileState] = useUpdateProfileMutation();
   const [changePassword, passwordState] = useChangePasswordMutation();
   const [uploadAvatar, avatarState] = useUploadAvatarMutation();
+  const [createTelegramLinkCode, telegramCodeState] =
+    useCreateTelegramLinkCodeMutation();
+  const [telegramCode, setTelegramCode] = useState<TelegramCode | null>(null);
 
   const initials = useMemo(() => {
     const words = (currentUser?.display_name || currentUser?.email || "TE")
@@ -125,6 +130,24 @@ export function ProfileScreen() {
     } catch (error) {
       toast.error(getErrorMessage(error, "Không thể tải ảnh đại diện"));
     }
+  }
+
+  async function handleCreateTelegramCode() {
+    try {
+      const code = await createTelegramLinkCode().unwrap();
+      setTelegramCode(code);
+      toast.success("Đã tạo mã liên kết Telegram");
+    } catch (error) {
+      toast.error(
+        getErrorMessage(error, "Không thể tạo mã liên kết Telegram")
+      );
+    }
+  }
+
+  async function handleCopyTelegramCode() {
+    if (!telegramCode) return;
+    await navigator.clipboard.writeText(`/link ${telegramCode.code}`);
+    toast.success("Đã sao chép lệnh liên kết");
   }
 
   return (
@@ -270,6 +293,64 @@ export function ProfileScreen() {
                     </Button>
                   </div>
                 </form>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Send />
+                  Telegram
+                </CardTitle>
+                <CardDescription>
+                  Tạo mã dùng một lần để liên kết tài khoản Tino với Telegram.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {telegramCode ? (
+                  <div className="space-y-3 rounded-md border bg-muted/40 p-4">
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">
+                        Gửi lệnh này cho Tino Telegram Bot
+                      </p>
+                      <p className="mt-2 font-mono text-xl font-semibold tracking-wider">
+                        /link {telegramCode.code}
+                      </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Hết hạn lúc{" "}
+                      {new Intl.DateTimeFormat("vi-VN", {
+                        dateStyle: "short",
+                        timeStyle: "short",
+                      }).format(new Date(telegramCode.expires_at))}
+                    </p>
+                    <Button
+                      className="w-full sm:w-auto"
+                      onClick={() => void handleCopyTelegramCode()}
+                      type="button"
+                      variant="outline"
+                    >
+                      <Copy />
+                      Sao chép lệnh
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Mã có hiệu lực trong 10 phút và chỉ sử dụng được một lần.
+                  </p>
+                )}
+                <Button
+                  disabled={telegramCodeState.isLoading}
+                  onClick={() => void handleCreateTelegramCode()}
+                  type="button"
+                >
+                  <Send />
+                  {telegramCodeState.isLoading
+                    ? "Đang tạo mã..."
+                    : telegramCode
+                      ? "Tạo mã mới"
+                      : "Tạo mã liên kết"}
+                </Button>
               </CardContent>
             </Card>
           </div>

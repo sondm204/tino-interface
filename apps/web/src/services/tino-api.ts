@@ -59,6 +59,11 @@ export type ChangePasswordPayload = {
   new_password: string;
 };
 
+export type TelegramCode = {
+  code: string;
+  expires_at: string;
+};
+
 export const tinoApi = {
   register: (payload: RegisterPayload) =>
     apiRequest<AuthPayload>("/auth/register", {
@@ -100,6 +105,15 @@ export const tinoApi = {
       body: formData,
     });
   },
+  createTelegramLinkCode: () =>
+    apiRequest<TelegramCode>("/api/telegram/link-code", {
+      method: "POST",
+    }),
+  createTelegramWalletConnectCode: (walletId: string) =>
+    apiRequest<TelegramCode>(
+      `/api/telegram/wallets/${walletId}/connect-code`,
+      { method: "POST" }
+    ),
   listWallets: (page = 1, size = 20) => {
     const params = new URLSearchParams({
       page: String(page),

@@ -17,6 +17,7 @@ import {
   type CreateWalletPayload,
   type LoginPayload,
   type RegisterPayload,
+  type TelegramCode,
   type UpdateProfilePayload,
   type UploadAvatarFile,
 } from "@/services/tino-api";
@@ -79,6 +80,16 @@ export const tinoApiSlice = createApi({
     >({
       queryFn: (file) => runApi(() => tinoApi.uploadAvatar(file)),
       invalidatesTags: ["Auth"],
+    }),
+    createTelegramLinkCode: builder.mutation<TelegramCode, void>({
+      queryFn: () => runApi(() => tinoApi.createTelegramLinkCode()),
+    }),
+    createTelegramWalletConnectCode: builder.mutation<
+      TelegramCode,
+      string
+    >({
+      queryFn: (walletId) =>
+        runApi(() => tinoApi.createTelegramWalletConnectCode(walletId)),
     }),
     getWallets: builder.query<
       PageableResponse<Wallet>,
@@ -200,6 +211,8 @@ export const tinoApiSlice = createApi({
 export const {
   useChangePasswordMutation,
   useCreateExpenseMutation,
+  useCreateTelegramLinkCodeMutation,
+  useCreateTelegramWalletConnectCodeMutation,
   useCreateWalletMutation,
   useDeleteExpenseMutation,
   useDeleteExpenseAttachmentMutation,

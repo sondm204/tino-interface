@@ -12,9 +12,11 @@ import {
 import {
   ArrowLeft,
   CalendarDays,
+  Copy,
   ImagePlus,
   Plus,
   ReceiptText,
+  Send,
   Trash2,
   X,
 } from "lucide-react";
@@ -53,6 +55,7 @@ import { settlementStatusLabel, splitMethodLabel } from "@/src/lib/labels";
 import { useAppSelector } from "@/src/store/hooks";
 import {
   useCreateExpenseMutation,
+  useCreateTelegramWalletConnectCodeMutation,
   useDeleteExpenseAttachmentMutation,
   useDeleteExpenseMutation,
   useGetExpensesQuery,
@@ -61,6 +64,7 @@ import {
   useUpdateExpenseMutation,
   useUploadExpenseAttachmentMutation,
 } from "@/src/store/tino-api-slice";
+import type { TelegramCode } from "@/src/services/tino-api";
 import type { Attachment, Expense, ExpenseSplit } from "@/src/types/domain";
 
 function currentMonth() {
@@ -121,6 +125,8 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
     { skip: !authHydrated || !currentUser }
   );
   const [createExpense, createExpenseState] = useCreateExpenseMutation();
+  const [createTelegramWalletConnectCode, telegramCodeState] =
+    useCreateTelegramWalletConnectCodeMutation();
   const [uploadExpenseAttachment, uploadAttachmentState] =
     useUploadExpenseAttachmentMutation();
   const [deleteExpenseAttachment, deleteAttachmentState] =
@@ -156,6 +162,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
   const [splitMethod, setSplitMethod] = useState<"equal" | "amount" | "percentage" | "shares">("equal");
   const [splitValues, setSplitValues] = useState<Record<string, string>>({});
   const [newAttachmentFiles, setNewAttachmentFiles] = useState<File[]>([]);
+  const [telegramCode, setTelegramCode] = useState<TelegramCode | null>(null);
   const newAttachmentPreviews = useMemo(
     () =>
       newAttachmentFiles.map((file) => ({
@@ -422,6 +429,28 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
       setFormError(message);
       toast.error(message);
     }
+  }
+
+  async function handleCreateTelegramWalletCode() {
+    if (!wallet) return;
+
+    try {
+      const code = await createTelegramWalletConnectCode(wallet.id).unwrap();
+      setTelegramCode(code);
+      toast.success("Đã tạo mã kết nối Telegram");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Không thể tạo mã kết nối Telegram"
+      );
+    }
+  }
+
+  async function handleCopyTelegramWalletCode() {
+    if (!telegramCode) return;
+    await navigator.clipboard.writeText(`/connect ${telegramCode.code}`);
+    toast.success("Đã sao chép lệnh kết nối");
   }
 
   function openExpenseEditor(expense: Expense) {
@@ -710,6 +739,61 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
               )}
             </Card>
           </section>
+
+          {wallet && currentUser?.id === wallet.owner_id ? (
+            <Card className="p-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 font-semibold">
+                    <Send size={18} />
+                    Kết nối Telegram
+                  </div>
+                  {telegramCode ? (
+                    <>
+                      <p className="mt-2 font-mono text-lg font-semibold tracking-wider">
+                        /connect {telegramCode.code}
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        Hết hạn lúc{" "}
+                        {new Intl.DateTimeFormat("vi-VN", {
+                          dateStyle: "short",
+                          timeStyle: "short",
+                        }).format(new Date(telegramCode.expires_at))}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                      Tạo mã một lần, sau đó gửi lệnh trong Telegram group.
+                    </p>
+                  )}
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  {telegramCode ? (
+                    <Button
+                      onClick={() => void handleCopyTelegramWalletCode()}
+                      type="button"
+                      variant="outline"
+                    >
+                      <Copy size={16} />
+                      Sao chép
+                    </Button>
+                  ) : null}
+                  <Button
+                    disabled={telegramCodeState.isLoading}
+                    onClick={() => void handleCreateTelegramWalletCode()}
+                    type="button"
+                  >
+                    <Send size={16} />
+                    {telegramCodeState.isLoading
+                      ? "Đang tạo..."
+                      : telegramCode
+                        ? "Tạo mã mới"
+                        : "Tạo mã"}
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          ) : null}
 
           <Card>
             <CardHeader
