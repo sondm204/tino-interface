@@ -1,8 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, Fragment, useCallback, useMemo, useState } from "react";
-import { ArrowLeft, CalendarDays, Plus, ReceiptText, Trash2 } from "lucide-react";
+import {
+  FormEvent,
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
+  ArrowLeft,
+  CalendarDays,
+  ImagePlus,
+  Plus,
+  ReceiptText,
+  Trash2,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/src/components/layout/app-shell";
 import { Button } from "@/src/components/ui/button";
@@ -38,13 +53,15 @@ import { settlementStatusLabel, splitMethodLabel } from "@/src/lib/labels";
 import { useAppSelector } from "@/src/store/hooks";
 import {
   useCreateExpenseMutation,
+  useDeleteExpenseAttachmentMutation,
   useDeleteExpenseMutation,
   useGetExpensesQuery,
   useGetWalletMembersQuery,
   useGetSummaryQuery,
   useUpdateExpenseMutation,
+  useUploadExpenseAttachmentMutation,
 } from "@/src/store/tino-api-slice";
-import type { Expense, ExpenseSplit } from "@/src/types/domain";
+import type { Attachment, Expense, ExpenseSplit } from "@/src/types/domain";
 
 function currentMonth() {
   return new Date().toISOString().slice(0, 7);
@@ -104,6 +121,10 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
     { skip: !authHydrated || !currentUser }
   );
   const [createExpense, createExpenseState] = useCreateExpenseMutation();
+  const [uploadExpenseAttachment, uploadAttachmentState] =
+    useUploadExpenseAttachmentMutation();
+  const [deleteExpenseAttachment, deleteAttachmentState] =
+    useDeleteExpenseAttachmentMutation();
   const [updateExpense, updateExpenseState] = useUpdateExpenseMutation();
   const [deleteExpense] = useDeleteExpenseMutation();
   const users = useMemo(
@@ -134,7 +155,18 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().slice(0, 10));
   const [splitMethod, setSplitMethod] = useState<"equal" | "amount" | "percentage" | "shares">("equal");
   const [splitValues, setSplitValues] = useState<Record<string, string>>({});
+  const [newAttachmentFiles, setNewAttachmentFiles] = useState<File[]>([]);
+  const newAttachmentPreviews = useMemo(
+    () =>
+      newAttachmentFiles.map((file) => ({
+        file,
+        url: URL.createObjectURL(file),
+      })),
+    [newAttachmentFiles]
+  );
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [previewAttachment, setPreviewAttachment] =
+    useState<Attachment | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editAmount, setEditAmount] = useState("");
@@ -159,6 +191,13 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
   const loading =
     !authHydrated || membersLoading || expensesLoading || summaryLoading;
   const saving = createExpenseState.isLoading;
+
+  useEffect(
+    () => () => {
+      newAttachmentPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
+    },
+    [newAttachmentPreviews]
+  );
 
   const currentUserWalletExpense = useMemo(() => {
     if (!currentUser || !summary) {
@@ -311,7 +350,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
     try {
       const totalAmount = parseMoneyInput(amount);
       const splits = buildExpenseSplits(totalAmount);
-      await createExpense({
+      const createdExpense = await createExpense({
         walletId: wallet.id,
         payload: {
           title,
@@ -325,12 +364,31 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
         },
       }).unwrap();
 
+      if (newAttachmentFiles.length > 0) {
+        try {
+          await Promise.all(
+            newAttachmentFiles.map((file) =>
+              uploadExpenseAttachment({
+                walletId: wallet.id,
+                expenseId: createdExpense.id,
+                file,
+              }).unwrap()
+            )
+          );
+        } catch {
+          toast.warning(
+            "Khoản chi đã được tạo nhưng có ảnh chưa upload thành công."
+          );
+        }
+      }
+
       setTitle("");
       setDescription("");
       setAmount("");
       setExpenseDate(new Date().toISOString().slice(0, 10));
       setSplitMethod("equal");
       setSplitValues({});
+      setNewAttachmentFiles([]);
       toast.success("Lưu chi tiêu thành công");
     } catch (err) {
       const message =
@@ -386,6 +444,59 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
         ])
       )
     );
+  }
+
+  async function handleUploadAttachments(files: File[]) {
+    if (!selectedExpense || !wallet || files.length === 0) return;
+
+    try {
+      const uploaded: Attachment[] = [];
+      for (const file of files) {
+        uploaded.push(
+          await uploadExpenseAttachment({
+            walletId: wallet.id,
+            expenseId: selectedExpense.id,
+            file,
+          }).unwrap()
+        );
+      }
+      setSelectedExpense((current) =>
+        current
+          ? {
+              ...current,
+              attachments: [...(current.attachments ?? []), ...uploaded],
+            }
+          : current
+      );
+      toast.success("Đã thêm ảnh vào khoản chi");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không thể upload ảnh");
+    }
+  }
+
+  async function handleDeleteAttachment(attachmentId: string) {
+    if (!selectedExpense || !wallet) return;
+
+    try {
+      await deleteExpenseAttachment({
+        walletId: wallet.id,
+        expenseId: selectedExpense.id,
+        attachmentId,
+      }).unwrap();
+      setSelectedExpense((current) =>
+        current
+          ? {
+              ...current,
+              attachments: (current.attachments ?? []).filter(
+                (attachment) => attachment.id !== attachmentId
+              ),
+            }
+          : current
+      );
+      toast.success("Đã xóa ảnh");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không thể xóa ảnh");
+    }
   }
 
   async function handleUpdateSelectedExpense(event: FormEvent<HTMLFormElement>) {
@@ -464,6 +575,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
           total_amount: totalAmount,
         },
       }).unwrap();
+
       setSelectedExpense(null);
       toast.success("Cập nhật chi tiêu thành công");
     } catch (error) {
@@ -946,7 +1058,64 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
                 </>
               )}
 
-              <Button className="w-full" disabled={saving} type="submit">
+              <div className="space-y-2">
+                <p className="text-sm font-semibold">Ảnh hóa đơn, sản phẩm</p>
+                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-zinc-300 px-4 py-3 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900">
+                  <ImagePlus size={18} />
+                  Chọn ảnh
+                  <input
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    multiple
+                    onChange={(event) =>
+                      setNewAttachmentFiles(
+                        Array.from(event.target.files ?? []).slice(0, 5)
+                      )
+                    }
+                    type="file"
+                  />
+                </label>
+                {newAttachmentFiles.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {newAttachmentPreviews.map(({ file, url }, index) => (
+                      <div
+                        className="group relative aspect-square overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
+                        key={`${file.name}-${file.lastModified}`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          alt={file.name}
+                          className="size-full object-cover"
+                          src={url}
+                        />
+                        <span className="absolute inset-x-0 bottom-0 truncate bg-black/65 px-2 py-1.5 text-xs text-white">
+                          {file.name}
+                        </span>
+                        <Button
+                          className="absolute right-1 top-1 bg-white/90 dark:bg-zinc-950/90"
+                          aria-label="Bỏ ảnh"
+                          onClick={() =>
+                            setNewAttachmentFiles((current) =>
+                              current.filter((_, fileIndex) => fileIndex !== index)
+                            )
+                          }
+                          size="icon"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <X size={15} />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <Button
+                className="w-full"
+                disabled={saving || uploadAttachmentState.isLoading}
+                type="submit"
+              >
                 <Plus size={17} />
                 {saving ? "Đang lưu..." : "Lưu chi tiêu"}
               </Button>
@@ -1106,11 +1275,78 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
                     </div>
                   </>
                 ) : null}
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold">Ảnh đính kèm</p>
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-zinc-200 px-3 py-2 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900">
+                      <ImagePlus size={16} />
+                      Thêm ảnh
+                      <input
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        className="hidden"
+                        multiple
+                        onChange={(event) => {
+                          void handleUploadAttachments(
+                            Array.from(event.target.files ?? []).slice(0, 5)
+                          );
+                          event.target.value = "";
+                        }}
+                        type="file"
+                      />
+                    </label>
+                  </div>
+                  {selectedExpense.attachments?.length ? (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      {selectedExpense.attachments.map((attachment) => (
+                        <div
+                          className="group relative aspect-square overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
+                          key={attachment.id}
+                        >
+                          <button
+                            aria-label={`Xem ảnh ${attachment.file_name}`}
+                            className="size-full cursor-zoom-in"
+                            onClick={() => setPreviewAttachment(attachment)}
+                            type="button"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              alt={attachment.file_name}
+                              className="size-full object-cover transition-transform duration-200 group-hover:scale-105"
+                              src={attachment.file_url}
+                            />
+                          </button>
+                          <Button
+                            aria-label="Xóa ảnh"
+                            className="absolute right-1 top-1 bg-white/90 dark:bg-zinc-950/90"
+                            disabled={deleteAttachmentState.isLoading}
+                            onClick={() =>
+                              void handleDeleteAttachment(attachment.id)
+                            }
+                            size="icon"
+                            type="button"
+                            variant="ghost"
+                          >
+                            <Trash2 className="text-red-600" size={15} />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                      Chưa có ảnh đính kèm.
+                    </p>
+                  )}
+                </div>
               </div>
 
               <Button
                 className="w-full"
-                disabled={updateExpenseState.isLoading}
+                disabled={
+                  updateExpenseState.isLoading ||
+                  uploadAttachmentState.isLoading ||
+                  deleteAttachmentState.isLoading
+                }
                 type="submit"
               >
                 {updateExpenseState.isLoading
@@ -1199,6 +1435,28 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
                 </div>
               </div>
             </form>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) setPreviewAttachment(null);
+        }}
+        open={previewAttachment !== null}
+      >
+        <DialogContent className="max-w-[95vw] border-0 bg-black/95 p-2 text-white sm:max-w-5xl">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{previewAttachment?.file_name || "Xem ảnh"}</DialogTitle>
+            <DialogDescription>Ảnh đính kèm của khoản chi.</DialogDescription>
+          </DialogHeader>
+          {previewAttachment ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              alt={previewAttachment.file_name}
+              className="max-h-[88vh] w-full object-contain"
+              src={previewAttachment.file_url}
+            />
           ) : null}
         </DialogContent>
       </Dialog>

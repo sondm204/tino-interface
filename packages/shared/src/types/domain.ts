@@ -41,6 +41,18 @@ export type ExpenseSplit = {
   shares?: number | null;
 };
 
+export type Attachment = {
+  id: string;
+  expense_id: string;
+  file_url: string;
+  file_path: string;
+  file_name: string;
+  file_type: string | null;
+  file_size: number | null;
+  uploaded_by_user_id: string;
+  created_at: string;
+};
+
 export type Expense = {
   id: string;
   wallet_id: string;
@@ -57,6 +69,7 @@ export type Expense = {
   updated_at: string | null;
   deleted_at: string | null;
   splits?: ExpenseSplit[];
+  attachments?: Attachment[];
 };
 
 export type WalletSummary = {

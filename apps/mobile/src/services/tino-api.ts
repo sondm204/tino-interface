@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 import { apiRequest, getRefreshToken } from "@/lib/api-client";
 import type { PageableResponse } from "@/types/api";
 import type {
+  Attachment,
   Expense,
   ExpenseSplit,
   User,
@@ -150,4 +151,30 @@ export const tinoApi = {
     apiRequest<{ id: string }>(`/api/wallets/${walletId}/expenses/${expenseId}`, {
       method: "DELETE",
     }),
+  uploadExpenseAttachment: async (
+    walletId: string,
+    expenseId: string,
+    file: UploadAvatarFile
+  ) => {
+    const blob =
+      Platform.OS === "web"
+        ? await fetch(file.uri).then((response) => response.blob())
+        : new File(file.uri);
+    const formData = new FormData();
+    formData.append("attachment", blob, file.name);
+
+    return apiRequest<Attachment>(
+      `/api/wallets/${walletId}/expenses/${expenseId}/attachments`,
+      { method: "POST", body: formData }
+    );
+  },
+  deleteExpenseAttachment: (
+    walletId: string,
+    expenseId: string,
+    attachmentId: string
+  ) =>
+    apiRequest<{ id: string }>(
+      `/api/wallets/${walletId}/expenses/${expenseId}/attachments/${attachmentId}`,
+      { method: "DELETE" }
+    ),
 };

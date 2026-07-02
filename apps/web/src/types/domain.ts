@@ -1,4 +1,5 @@
-﻿export type {
+export type {
+  Attachment,
   Expense,
   ExpenseSplit,
   User,

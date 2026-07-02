@@ -4,6 +4,7 @@ import {
 } from "@/src/lib/api-client";
 import type { PageableResponse } from "@/src/types/api";
 import type {
+  Attachment,
   Expense,
   ExpenseSplit,
   Wallet,
@@ -154,4 +155,26 @@ export const tinoApi = {
     apiRequest<{ id: string }>(`/api/wallets/${walletId}/expenses/${expenseId}`, {
       method: "DELETE",
     }),
+  uploadExpenseAttachment: (
+    walletId: string,
+    expenseId: string,
+    file: File
+  ) => {
+    const formData = new FormData();
+    formData.append("attachment", file);
+
+    return apiRequest<Attachment>(
+      `/api/wallets/${walletId}/expenses/${expenseId}/attachments`,
+      { method: "POST", body: formData }
+    );
+  },
+  deleteExpenseAttachment: (
+    walletId: string,
+    expenseId: string,
+    attachmentId: string
+  ) =>
+    apiRequest<{ id: string }>(
+      `/api/wallets/${walletId}/expenses/${expenseId}/attachments/${attachmentId}`,
+      { method: "DELETE" }
+    ),
 };

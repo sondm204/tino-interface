@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import {
   FlatList,
+  Image,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -8,14 +10,17 @@ import {
   View,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   ArrowLeft,
   CalendarDays,
   ChevronDown,
   ChevronUp,
+  ImagePlus,
   Plus,
   Trash2,
+  X,
 } from "lucide-react-native";
 import { Button } from "@/components/ui/button";
 import { useAlertDialog } from "@/components/ui/alert-dialog";
@@ -36,13 +41,15 @@ import { splitMethodLabel } from "@/lib/labels";
 import { useAppSelector } from "@/store/hooks";
 import {
   useCreateExpenseMutation,
+  useDeleteExpenseAttachmentMutation,
   useDeleteExpenseMutation,
   useGetExpensesQuery,
   useGetSummaryQuery,
   useGetWalletMembersQuery,
   useUpdateExpenseMutation,
+  useUploadExpenseAttachmentMutation,
 } from "@/store/tino-api-slice";
-import type { Expense, ExpenseSplit } from "@/types/domain";
+import type { Attachment, Expense, ExpenseSplit } from "@/types/domain";
 
 const splitOptions = [
   { label: "Chia đều", value: "equal" },
@@ -115,6 +122,8 @@ export function WalletDetailScreen() {
   const [createDialogVisible, setCreateDialogVisible] = useState(false);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [previewAttachment, setPreviewAttachment] =
+    useState<Attachment | null>(null);
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [editTitle, setEditTitle] = useState("");
@@ -131,6 +140,9 @@ export function WalletDetailScreen() {
   const [splitMethod, setSplitMethod] =
     useState<"equal" | "amount" | "percentage" | "shares">("equal");
   const [splitValues, setSplitValues] = useState<Record<string, string>>({});
+  const [newAttachmentAssets, setNewAttachmentAssets] = useState<
+    ImagePicker.ImagePickerAsset[]
+  >([]);
   const expensesQuery = useGetExpensesQuery(
     { walletId, page: 1, size: 100, month },
     { skip: !walletId }
@@ -138,6 +150,10 @@ export function WalletDetailScreen() {
   const membersQuery = useGetWalletMembersQuery(walletId, { skip: !walletId });
   const summaryQuery = useGetSummaryQuery({ walletId, month }, { skip: !walletId });
   const [createExpense, createState] = useCreateExpenseMutation();
+  const [uploadExpenseAttachment, uploadAttachmentState] =
+    useUploadExpenseAttachmentMutation();
+  const [deleteExpenseAttachment, deleteAttachmentState] =
+    useDeleteExpenseAttachmentMutation();
   const [updateExpense, updateState] = useUpdateExpenseMutation();
   const [deleteExpense, deleteState] = useDeleteExpenseMutation();
 
@@ -258,6 +274,95 @@ export function WalletDetailScreen() {
     return Array.from(groups.entries()).map(([date, data]) => ({ date, data }));
   }, [expensesQuery.data?.items, month]);
 
+  async function pickImages() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      alert("Cần cấp quyền", "Bạn cần cấp quyền truy cập thư viện ảnh.");
+      return [];
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsMultipleSelection: true,
+      mediaTypes: ["images"],
+      quality: 0.85,
+      selectionLimit: 5,
+    });
+
+    return result.canceled ? [] : result.assets;
+  }
+
+  function toUploadFile(asset: ImagePicker.ImagePickerAsset) {
+    return {
+      name: asset.fileName || `expense-${Date.now()}.jpg`,
+      type: asset.mimeType || "image/jpeg",
+      uri: asset.uri,
+    };
+  }
+
+  async function handlePickCreateAttachments() {
+    const assets = await pickImages();
+    if (assets.length > 0) setNewAttachmentAssets(assets);
+  }
+
+  async function handlePickEditAttachments() {
+    if (!editingExpense) return;
+    const assets = await pickImages();
+    if (assets.length === 0) return;
+
+    try {
+      const uploaded: Attachment[] = [];
+      for (const asset of assets) {
+        const result = await uploadExpenseAttachment({
+          walletId,
+          expenseId: editingExpense.id,
+          file: toUploadFile(asset),
+        }).unwrap();
+        uploaded.push(result);
+      }
+      setEditingExpense((current) =>
+        current
+          ? {
+              ...current,
+              attachments: [...(current.attachments ?? []), ...uploaded],
+            }
+          : current
+      );
+      alert("Thành công", "Đã thêm ảnh vào khoản chi.");
+    } catch (error) {
+      alert(
+        "Không thể upload ảnh",
+        error instanceof Error ? error.message : "Đã có lỗi xảy ra."
+      );
+    }
+  }
+
+  async function handleDeleteAttachment(attachmentId: string) {
+    if (!editingExpense) return;
+
+    const result = await deleteExpenseAttachment({
+      walletId,
+      expenseId: editingExpense.id,
+      attachmentId,
+    });
+
+    if ("error" in result) {
+      alert("Không thể xóa ảnh", result.error?.message || "Đã có lỗi xảy ra.");
+      return;
+    }
+
+    setEditingExpense((current) =>
+      current
+        ? {
+            ...current,
+            attachments: (current.attachments ?? []).filter(
+              (attachment) => attachment.id !== attachmentId
+            ),
+          }
+        : current
+    );
+  }
+
   async function handleCreateExpense() {
     const numericAmount = parseMoneyInput(amount);
     const payerId = currentUser?.id || membersQuery.data?.[0]?.user_id;
@@ -304,11 +409,29 @@ export function WalletDetailScreen() {
       return;
     }
 
+    if (newAttachmentAssets.length > 0) {
+      try {
+        for (const asset of newAttachmentAssets) {
+          await uploadExpenseAttachment({
+            walletId,
+            expenseId: result.data.id,
+            file: toUploadFile(asset),
+          }).unwrap();
+        }
+      } catch {
+        alert(
+          "Upload ảnh chưa hoàn tất",
+          "Khoản chi đã được tạo nhưng có ảnh chưa upload thành công."
+        );
+      }
+    }
+
     setCreateDialogVisible(false);
     setTitle("");
     setAmount("");
     setSplitMethod("equal");
     setSplitValues({});
+    setNewAttachmentAssets([]);
   }
 
   function openEditExpense(expense: Expense) {
@@ -723,9 +846,46 @@ export function WalletDetailScreen() {
             ) : null}
           </>
         ) : null}
+        <View className="gap-3">
+          <Button onPress={() => void handlePickCreateAttachments()} variant="outline">
+            <ImagePlus color={isDark ? "#f8fafc" : "#0f172a"} size={18} />
+            Chọn ảnh hóa đơn, sản phẩm
+          </Button>
+          {newAttachmentAssets.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerClassName="gap-2"
+            >
+              {newAttachmentAssets.map((asset, index) => (
+                <View className="relative" key={`${asset.uri}-${index}`}>
+                  <Image
+                    className="size-20 rounded-lg"
+                    source={{ uri: asset.uri }}
+                  />
+                  <Pressable
+                    className="absolute right-1 top-1 size-7 items-center justify-center rounded-full bg-black/70"
+                    onPress={() =>
+                      setNewAttachmentAssets((current) =>
+                        current.filter((_, assetIndex) => assetIndex !== index)
+                      )
+                    }
+                  >
+                    <Trash2 color="#fff" size={14} />
+                  </Pressable>
+                </View>
+              ))}
+            </ScrollView>
+          ) : null}
+        </View>
         <View className="flex-row justify-end gap-2">
           <Button onPress={() => setCreateDialogVisible(false)} variant="ghost">Hủy</Button>
-          <Button loading={createState.isLoading} onPress={handleCreateExpense}>Lưu</Button>
+          <Button
+            loading={createState.isLoading || uploadAttachmentState.isLoading}
+            onPress={handleCreateExpense}
+          >
+            Lưu
+          </Button>
         </View>
       </Dialog>
 
@@ -904,11 +1064,62 @@ export function WalletDetailScreen() {
           </>
         ) : null}
 
+        <View className="gap-3">
+          <View className="flex-row items-center justify-between gap-3">
+            <Text className="font-semibold">Ảnh đính kèm</Text>
+            <Button
+              loading={uploadAttachmentState.isLoading}
+              onPress={() => void handlePickEditAttachments()}
+              size="sm"
+              variant="outline"
+            >
+              <ImagePlus color={isDark ? "#f8fafc" : "#0f172a"} size={16} />
+              Thêm ảnh
+            </Button>
+          </View>
+          {editingExpense?.attachments?.length ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerClassName="gap-2"
+            >
+              {editingExpense.attachments.map((attachment) => (
+                <View className="relative" key={attachment.id}>
+                  <Pressable
+                    accessibilityLabel={`Xem ảnh ${attachment.file_name}`}
+                    accessibilityRole="button"
+                    onPress={() => setPreviewAttachment(attachment)}
+                  >
+                    <Image
+                      className="size-24 rounded-lg bg-slate-100 dark:bg-slate-800"
+                      resizeMode="cover"
+                      source={{ uri: attachment.file_url }}
+                    />
+                  </Pressable>
+                  <Pressable
+                    className="absolute right-1 top-1 size-7 items-center justify-center rounded-full bg-black/70"
+                    disabled={deleteAttachmentState.isLoading}
+                    onPress={() => void handleDeleteAttachment(attachment.id)}
+                  >
+                    <Trash2 color="#fff" size={14} />
+                  </Pressable>
+                </View>
+              ))}
+            </ScrollView>
+          ) : (
+            <Text variant="muted">Chưa có ảnh đính kèm.</Text>
+          )}
+        </View>
+
         <View className="flex-row justify-end gap-2">
           <Button
             accessibilityLabel="Xóa khoản chi"
             className="mr-auto px-3"
-            disabled={deleteState.isLoading}
+            disabled={
+              deleteState.isLoading ||
+              uploadAttachmentState.isLoading ||
+              deleteAttachmentState.isLoading
+            }
             onPress={() =>
               editingExpense && confirmDeleteExpense(editingExpense)
             }
@@ -917,9 +1128,46 @@ export function WalletDetailScreen() {
             <Trash2 color="#dc2626" size={18} />
           </Button>
           <Button onPress={() => setEditingExpense(null)} variant="ghost">Hủy</Button>
-          <Button loading={updateState.isLoading} onPress={handleUpdateExpense}>Lưu thay đổi</Button>
+          <Button
+            loading={updateState.isLoading}
+            onPress={handleUpdateExpense}
+          >
+            Lưu thay đổi
+          </Button>
         </View>
       </Dialog>
+
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setPreviewAttachment(null)}
+        statusBarTranslucent
+        transparent
+        visible={previewAttachment !== null}
+      >
+        <View className="flex-1 bg-black">
+          <Pressable
+            accessibilityLabel="Đóng ảnh"
+            accessibilityRole="button"
+            className="absolute right-4 top-12 z-10 size-11 items-center justify-center rounded-full bg-black/60"
+            onPress={() => setPreviewAttachment(null)}
+          >
+            <X color="#fff" size={24} />
+          </Pressable>
+          {previewAttachment ? (
+            <Pressable
+              className="flex-1 items-center justify-center"
+              onPress={() => setPreviewAttachment(null)}
+            >
+              <Image
+                accessibilityLabel={previewAttachment.file_name}
+                className="h-full w-full"
+                resizeMode="contain"
+                source={{ uri: previewAttachment.file_url }}
+              />
+            </Pressable>
+          ) : null}
+        </View>
+      </Modal>
     </>
   );
 }

@@ -3,7 +3,7 @@ import type { ApiResponse } from "@/types/api";
 import type { User } from "@/types/domain";
 
 const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL || "https://tino-service.onrender.com";
+  process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:4000";
 const AUTH_TOKEN_KEY = "tino-auth-token";
 const REFRESH_TOKEN_KEY = "tino-refresh-token";
 const CURRENT_USER_KEY = "tino-current-user";

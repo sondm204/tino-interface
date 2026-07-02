@@ -1,6 +1,7 @@
 import { createApi, fakeBaseQuery } from "@reduxjs/toolkit/query/react";
 import type { ApiResponse, PageableResponse } from "@/src/types/api";
 import type {
+  Attachment,
   Expense,
   Wallet,
   WalletMember,
@@ -174,6 +175,28 @@ export const tinoApiSlice = createApi({
         { type: "Wallets", id: "LIST" },
       ],
     }),
+    uploadExpenseAttachment: builder.mutation<
+      Attachment,
+      { walletId: string; expenseId: string; file: File }
+    >({
+      queryFn: ({ walletId, expenseId, file }) =>
+        runApi(() => tinoApi.uploadExpenseAttachment(walletId, expenseId, file)),
+      invalidatesTags: (_result, _error, { walletId }) => [
+        { type: "Expenses", id: walletId },
+      ],
+    }),
+    deleteExpenseAttachment: builder.mutation<
+      { id: string },
+      { walletId: string; expenseId: string; attachmentId: string }
+    >({
+      queryFn: ({ walletId, expenseId, attachmentId }) =>
+        runApi(() =>
+          tinoApi.deleteExpenseAttachment(walletId, expenseId, attachmentId)
+        ),
+      invalidatesTags: (_result, _error, { walletId }) => [
+        { type: "Expenses", id: walletId },
+      ],
+    }),
     deleteExpense: builder.mutation<
       { id: string },
       { walletId: string; expenseId: string }
@@ -195,6 +218,7 @@ export const {
   useCreateExpenseMutation,
   useCreateWalletMutation,
   useDeleteExpenseMutation,
+  useDeleteExpenseAttachmentMutation,
   useGetCurrentUserQuery,
   useGetExpensesQuery,
   useGetWalletMembersQuery,
@@ -205,5 +229,6 @@ export const {
   useRegisterMutation,
   useUpdateProfileMutation,
   useUpdateExpenseMutation,
+  useUploadExpenseAttachmentMutation,
   useUploadAvatarMutation,
 } = tinoApiSlice;
