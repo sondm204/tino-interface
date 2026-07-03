@@ -86,7 +86,7 @@ export function AuthPanel({ mode }: { mode: Mode }) {
           <div>
             <p className="text-lg font-semibold">Tino Expense</p>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              Quản lý ví chi tiêu cá nhân và dùng chung
+              Quản lý ví chi tiêu cá nhân và nhóm
             </p>
           </div>
         </div>

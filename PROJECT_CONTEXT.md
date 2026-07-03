@@ -148,6 +148,11 @@ Expense flow:
   `created_by_user_id`.
 - The connected group determines `wallet_id`.
 - Telegram-created expenses currently use `split_method = equal`.
+- After an expense is confirmed, the bot offers an optional receipt-image step.
+- Only the original Telegram sender can attach the next image, in the same
+  chat, within five minutes.
+- The bot downloads the largest Telegram photo variant and uploads it through
+  the Express bot API; it never writes to object storage or Supabase directly.
 - The backend rechecks account linking, chat connection, and active wallet
   membership before every write.
 - Pending bot confirmations expire after five minutes and currently live in
