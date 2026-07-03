@@ -30,6 +30,7 @@ Phase 1 should support:
 - Seeing a simple split summary for who should reimburse whom.
 - Linking a Tino account and wallet to Telegram.
 - Creating equal-split expenses from Telegram group messages.
+- Receiving in-app notifications for expense changes in shared wallets.
 
 Phase 1 does not need:
 
@@ -157,6 +158,28 @@ Expense flow:
   membership before every write.
 - Pending bot confirmations expire after five minutes and currently live in
   bot process memory.
+
+### Notifications
+
+Notifications are persisted by `tino-service` and displayed by web and mobile
+clients. Phase 1 uses in-app notifications only; push notifications, email, and
+Telegram delivery are outside the current notification scope.
+
+Current behavior:
+
+- Creating an expense notifies every other active member of the wallet.
+- Updating an expense notifies every other active member of the wallet.
+- The actor does not receive a notification for their own action.
+- `created_by` stores the Tino user who caused the notification. Notification
+  list responses include that user's display name and avatar as `creator`.
+- Notification persistence is best-effort and must not cause the expense
+  operation to fail.
+- Users can list their own notifications, view an unread count, mark one as
+  read, or mark all as read.
+- Notification metadata can include `wallet_id` and `expense_id`, allowing the
+  client to open the related wallet.
+- Telegram expense creation calls the same backend `createExpense` service, so
+  it creates notifications with the linked Tino user in `created_by`.
 
 ## Suggested Domain Model
 
@@ -295,6 +318,19 @@ This is the canonical database model for future implementation. Feature work sho
 - `consumed_at`
 - `created_at`
 
+### Notification
+
+- `id`
+- `user_id`
+- `created_by`
+- `type`: `EXPENSE_CREATED`, `EXPENSE_UPDATED`, or `SYSTEM`
+- `title`
+- `message`
+- `status`: `UNREAD` or `READ`
+- `metadata`: JSON object containing optional related entity IDs
+- `created_at`
+- `read_at`
+
 Categories are wallet-scoped through `wallet_id`. Attachments belong to expenses. Settlements are persisted monthly or per selected period after the summary calculation is generated.
 
 ## Tech Stack
@@ -342,6 +378,7 @@ with RTK Query, shadcn/ui components, dark mode, skeleton states, and toast feed
 The Express backend lives in the separate `E:\Tino\tino-service` repository. It
 currently owns authentication, users, wallets, wallet members, expenses, summaries,
 profile avatar upload, expense attachments, and Telegram integration APIs.
+It also owns persisted in-app notifications and notification read state.
 
 The Telegram bot lives in the separate `E:\Tino\tino-telebot` repository. It
 supports account linking, wallet-group connection, wallet inspection, Vietnamese
@@ -445,6 +482,10 @@ Recommended API surface for Phase 1:
 - `POST /bot/telegram/connect`
 - `POST /bot/telegram/context`
 - `POST /bot/telegram/expenses`
+- `GET /api/notifications?page=1&size=50`
+- `GET /api/notifications/unread-count`
+- `PATCH /api/notifications/:notificationId/read`
+- `PATCH /api/notifications/read-all`
 
 The `/api/telegram/*` endpoints use the normal user bearer access token. The
 `/bot/telegram/*` endpoints are server-to-server APIs authenticated with the

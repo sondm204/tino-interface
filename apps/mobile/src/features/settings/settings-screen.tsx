@@ -3,6 +3,7 @@ import { Pressable, Switch, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
 import {
+  Bell,
   ChevronRight,
   Copy,
   LogOut,
@@ -24,6 +25,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   tinoApiSlice,
   useCreateTelegramLinkCodeMutation,
+  useGetUnreadNotificationCountQuery,
   useLogoutMutation,
 } from "@/store/tino-api-slice";
 import type { TelegramCode } from "@/services/tino-api";
@@ -36,6 +38,10 @@ export function SettingsScreen() {
   const [logout, logoutState] = useLogoutMutation();
   const [createTelegramLinkCode, telegramCodeState] =
     useCreateTelegramLinkCodeMutation();
+  const { data: unreadNotifications } =
+    useGetUnreadNotificationCountQuery(undefined, {
+      pollingInterval: 60_000,
+    });
   const [logoutDialogVisible, setLogoutDialogVisible] = useState(false);
   const [telegramDialogVisible, setTelegramDialogVisible] = useState(false);
   const [telegramCode, setTelegramCode] = useState<TelegramCode | null>(null);
@@ -119,6 +125,33 @@ export function SettingsScreen() {
               <Text className="font-semibold">Kết nối Telegram</Text>
               <Text numberOfLines={2} variant="muted">
                 Tạo mã để liên kết tài khoản với Tino Bot.
+              </Text>
+            </View>
+            <ChevronRight color={isDark ? "#94a3b8" : "#64748b"} size={20} />
+          </Pressable>
+        </Card>
+
+        <Card className="gap-0 p-0">
+          <Pressable
+            className="flex-row items-center gap-3 px-4 py-4"
+            onPress={() => router.push("/notifications")}
+          >
+            <View className="relative size-10 items-center justify-center rounded-xl bg-red-50 dark:bg-red-950">
+              <Bell color="#dc2626" size={20} />
+              {unreadNotifications?.count ? (
+                <View className="absolute -right-1 -top-1 min-w-5 items-center rounded-full bg-red-600 px-1">
+                  <Text className="text-xs font-bold leading-5 text-white">
+                    {unreadNotifications.count > 99
+                      ? "99+"
+                      : unreadNotifications.count}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+            <View className="min-w-0 flex-1">
+              <Text className="font-semibold">Thông báo</Text>
+              <Text numberOfLines={1} variant="muted">
+                Xem các thay đổi chi tiêu trong ví.
               </Text>
             </View>
             <ChevronRight color={isDark ? "#94a3b8" : "#64748b"} size={20} />

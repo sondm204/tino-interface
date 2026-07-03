@@ -3,6 +3,7 @@ import type { ApiResponse, PageableResponse } from "@/types/api";
 import type {
   Attachment,
   Expense,
+  Notification,
   User,
   Wallet,
   WalletMember,
@@ -49,7 +50,7 @@ async function runApi<T>(
 export const tinoApiSlice = createApi({
   reducerPath: "tinoApi",
   baseQuery: fakeBaseQuery<ApiError>(),
-  tagTypes: ["Auth", "Wallets", "WalletMembers", "Expenses", "Summary"],
+  tagTypes: ["Auth", "Wallets", "WalletMembers", "Expenses", "Summary", "Notifications"],
   endpoints: (builder) => ({
     login: builder.mutation<AuthPayload, LoginPayload>({
       queryFn: (payload) => runApi(() => tinoApi.login(payload)),
@@ -205,6 +206,30 @@ export const tinoApiSlice = createApi({
         { type: "Wallets", id: "LIST" },
       ],
     }),
+    getNotifications: builder.query<
+      PageableResponse<Notification>,
+      { page?: number; size?: number } | void
+    >({
+      queryFn: (args) =>
+        runApi(() => tinoApi.listNotifications(args?.page, args?.size)),
+      providesTags: ["Notifications"],
+    }),
+    getUnreadNotificationCount: builder.query<{ count: number }, void>({
+      queryFn: () => runApi(() => tinoApi.getUnreadNotificationCount()),
+      providesTags: ["Notifications"],
+    }),
+    markNotificationRead: builder.mutation<Notification, string>({
+      queryFn: (notificationId) =>
+        runApi(() => tinoApi.markNotificationRead(notificationId)),
+      invalidatesTags: ["Notifications"],
+    }),
+    markAllNotificationsRead: builder.mutation<
+      { updated: number; read_at: string },
+      void
+    >({
+      queryFn: () => runApi(() => tinoApi.markAllNotificationsRead()),
+      invalidatesTags: ["Notifications"],
+    }),
   }),
 });
 
@@ -217,11 +242,15 @@ export const {
   useDeleteExpenseMutation,
   useDeleteExpenseAttachmentMutation,
   useGetCurrentUserQuery,
+  useGetNotificationsQuery,
+  useGetUnreadNotificationCountQuery,
   useGetExpensesQuery,
   useGetSummaryQuery,
   useGetWalletMembersQuery,
   useGetWalletsQuery,
   useLoginMutation,
+  useMarkAllNotificationsReadMutation,
+  useMarkNotificationReadMutation,
   useLogoutMutation,
   useRegisterMutation,
   useUpdateProfileMutation,

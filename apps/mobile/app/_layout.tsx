@@ -18,6 +18,7 @@ export default function RootLayout() {
                 <Stack.Screen name="(auth)" />
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="profile" />
+                <Stack.Screen name="notifications" />
                 <Stack.Screen name="wallets/[walletId]" />
               </Stack>
             </AlertDialogProvider>

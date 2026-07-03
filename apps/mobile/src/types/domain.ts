@@ -2,6 +2,7 @@ export type {
   Attachment,
   Expense,
   ExpenseSplit,
+  Notification,
   User,
   Wallet,
   WalletMember,

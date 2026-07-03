@@ -7,6 +7,7 @@ import type {
   Attachment,
   Expense,
   ExpenseSplit,
+  Notification,
   Wallet,
   WalletMember,
   WalletMemberWithUser,
@@ -190,5 +191,20 @@ export const tinoApi = {
     apiRequest<{ id: string }>(
       `/api/wallets/${walletId}/expenses/${expenseId}/attachments/${attachmentId}`,
       { method: "DELETE" }
+    ),
+  listNotifications: (page = 1, size = 50) =>
+    apiRequest<PageableResponse<Notification>>(
+      `/api/notifications?page=${page}&size=${size}`
+    ),
+  getUnreadNotificationCount: () =>
+    apiRequest<{ count: number }>("/api/notifications/unread-count"),
+  markNotificationRead: (notificationId: string) =>
+    apiRequest<Notification>(`/api/notifications/${notificationId}/read`, {
+      method: "PATCH",
+    }),
+  markAllNotificationsRead: () =>
+    apiRequest<{ updated: number; read_at: string }>(
+      "/api/notifications/read-all",
+      { method: "PATCH" }
     ),
 };

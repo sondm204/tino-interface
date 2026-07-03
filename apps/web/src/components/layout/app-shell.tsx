@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
+  CheckCheck,
   CircleHelp,
   LogOut,
   MoreHorizontal,
@@ -33,7 +34,11 @@ import { useAppDispatch, useAppSelector } from "@/src/store/hooks";
 import {
   tinoApiSlice,
   useGetCurrentUserQuery,
+  useGetNotificationsQuery,
+  useGetUnreadNotificationCountQuery,
   useLogoutMutation,
+  useMarkAllNotificationsReadMutation,
+  useMarkNotificationReadMutation,
 } from "@/src/store/tino-api-slice";
 import {
   Popover,
@@ -95,6 +100,19 @@ export function AppShell({
   const { data: fetchedCurrentUser } = useGetCurrentUserQuery(undefined, {
     skip: !shouldLoadCurrentUser,
   });
+  const { data: unreadNotifications } =
+    useGetUnreadNotificationCountQuery(undefined, {
+      skip: !authHydrated || !currentUser,
+      pollingInterval: 60_000,
+    });
+  const { data: notificationsData, isLoading: notificationsLoading } =
+    useGetNotificationsQuery(
+      { page: 1, size: 10 },
+      { skip: !authHydrated || !currentUser, pollingInterval: 60_000 }
+    );
+  const [markNotificationRead] = useMarkNotificationReadMutation();
+  const [markAllNotificationsRead, markAllNotificationsState] =
+    useMarkAllNotificationsReadMutation();
 
   useEffect(() => {
     if (!fetchedCurrentUser) {
@@ -137,6 +155,17 @@ export function AppShell({
     dispatch(clearCurrentUser());
     dispatch(tinoApiSlice.util.resetApiState());
     router.push("/login");
+  }
+
+  async function handleNotification(
+    notification: NonNullable<typeof notificationsData>["items"][number]
+  ) {
+    if (notification.status === "UNREAD") {
+      await markNotificationRead(notification.id);
+    }
+
+    const walletId = notification.metadata.wallet_id;
+    if (walletId) router.push(`/wallets/${walletId}`);
   }
 
   if (!authHydrated || !currentUser || !hasStoredSession) {
@@ -355,14 +384,107 @@ export function AppShell({
                 <h1 className="truncate text-xl font-semibold">{title}</h1>
               </div>
               <ThemeToggle />
-              <Button
-                aria-label="Thông báo"
-                size="icon"
-                type="button"
-                variant="outline"
-              >
-                <Bell size={18} />
-              </Button>
+              <Popover>
+                <PopoverTrigger
+                  render={
+                    <Button
+                      aria-label="Thông báo"
+                      className="relative"
+                      size="icon"
+                      type="button"
+                      variant="outline"
+                    />
+                  }
+                >
+                  <Bell size={18} />
+                  {unreadNotifications?.count ? (
+                    <span className="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold leading-4 text-white">
+                      {unreadNotifications.count > 99
+                        ? "99+"
+                        : unreadNotifications.count}
+                    </span>
+                  ) : null}
+                </PopoverTrigger>
+                <PopoverContent
+                  align="end"
+                  className="w-[min(380px,calc(100vw-2rem))] p-0"
+                  sideOffset={8}
+                >
+                  <div className="flex items-center justify-between border-b p-3">
+                    <p className="font-semibold">Thông báo</p>
+                    {unreadNotifications?.count ? (
+                      <Button
+                        disabled={markAllNotificationsState.isLoading}
+                        onClick={() => void markAllNotificationsRead()}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <CheckCheck size={15} />
+                        Đọc tất cả
+                      </Button>
+                    ) : null}
+                  </div>
+                  <div className="max-h-[420px] overflow-y-auto">
+                    {notificationsLoading ? (
+                      <p className="p-4 text-sm text-muted-foreground">
+                        Đang tải thông báo...
+                      </p>
+                    ) : notificationsData?.items.length ? (
+                      notificationsData.items.map((notification) => (
+                        <button
+                          className={`flex w-full gap-3 border-b p-3 text-left last:border-b-0 hover:bg-muted/60 ${
+                            notification.status === "UNREAD"
+                              ? "bg-blue-50/70 dark:bg-blue-950/30"
+                              : ""
+                          }`}
+                          key={notification.id}
+                          onClick={() => void handleNotification(notification)}
+                          type="button"
+                        >
+                          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted">
+                            <ReceiptText size={16} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center gap-2">
+                              <span className="truncate text-sm font-semibold">
+                                {notification.title}
+                              </span>
+                              {notification.status === "UNREAD" ? (
+                                <span className="size-2 shrink-0 rounded-full bg-blue-600" />
+                              ) : null}
+                            </span>
+                            <span className="mt-1 block text-sm text-muted-foreground">
+                              <strong className="font-medium text-foreground">
+                                {notification.creator?.display_name ||
+                                  "Hệ thống"}
+                              </strong>{" "}
+                              {notification.type === "EXPENSE_CREATED"
+                                ? "đã tạo khoản chi"
+                                : notification.type === "EXPENSE_UPDATED"
+                                  ? "đã cập nhật khoản chi"
+                                  : ""}
+                            </span>
+                            <span className="mt-0.5 block text-sm">
+                              {notification.message}
+                            </span>
+                            <span className="mt-1 block text-xs text-muted-foreground">
+                              {new Intl.DateTimeFormat("vi-VN", {
+                                dateStyle: "short",
+                                timeStyle: "short",
+                              }).format(new Date(notification.created_at))}
+                            </span>
+                          </span>
+                        </button>
+                      ))
+                    ) : (
+                      <p className="p-6 text-center text-sm text-muted-foreground">
+                        Chưa có thông báo.
+                      </p>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
               {action}
             </div>
           </header>

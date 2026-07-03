@@ -91,3 +91,25 @@ export type WalletSummary = {
     currency: "VND" | "USD";
   }>;
 };
+
+export type Notification = {
+  id: string;
+  user_id: string;
+  created_by: string | null;
+  type: "EXPENSE_CREATED" | "EXPENSE_UPDATED" | "SYSTEM";
+  title: string;
+  message: string;
+  status: "UNREAD" | "READ";
+  metadata: {
+    wallet_id?: string;
+    expense_id?: string;
+    [key: string]: unknown;
+  };
+  created_at: string;
+  read_at: string | null;
+  creator?: {
+    id: string;
+    display_name: string;
+    avatar_url: string | null;
+  } | null;
+};
