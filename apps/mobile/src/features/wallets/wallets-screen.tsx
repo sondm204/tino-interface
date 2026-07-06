@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useMemo, useState } from "react";
 import { FlatList, Pressable, RefreshControl, View } from "react-native";
 import { router } from "expo-router";
 import { Plus } from "lucide-react-native";
@@ -19,15 +19,34 @@ import {
 
 export function WalletsScreen() {
   const { alert } = useAlertDialog();
+  const currentMonth = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  }, []);
   const { data, isFetching, isLoading, refetch } = useGetWalletsQuery({
     page: 1,
     size: 50,
+    month: currentMonth,
   });
   const [createWallet, createState] = useCreateWalletMutation();
   const [dialogVisible, setDialogVisible] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState<"personal" | "shared">("personal");
+  const currentUserExpenseByCurrency = useMemo(() => {
+    const totals = (data?.items || []).reduce<Record<string, number>>((result, wallet) => {
+      result[wallet.currency] =
+        (result[wallet.currency] ?? 0) + Number(wallet.user_share_amount ?? 0);
+
+      return result;
+    }, {});
+
+    const entries = Object.entries(totals).filter(([, amount]) => amount > 0) as Array<
+      [string, number]
+    >;
+
+    return entries.length > 0 ? entries : ([["VND", 0]] as Array<[string, number]>);
+  }, [data?.items]);
 
   async function handleCreateWallet() {
     if (!name.trim()) {
@@ -71,6 +90,15 @@ export function WalletsScreen() {
           </Button>
         </View>
 
+        <Card className="gap-1">
+          <Text variant="muted">Tổng chi tiêu của bạn tháng này</Text>
+          <Text variant="headline">
+            {currentUserExpenseByCurrency
+              .map(([currency, amount]) => formatCurrency(amount, currency))
+              .join(" + ")}
+          </Text>
+        </Card>
+
         <FlatList
           contentContainerClassName="gap-3 pb-24"
           data={data?.items || []}
@@ -93,7 +121,7 @@ export function WalletsScreen() {
                     </Text>
                   </View>
                   <Text className="font-semibold">
-                    {formatCurrency(item.total_amount, item.currency)}
+                    {formatCurrency(item.user_share_amount ?? 0, item.currency)}
                   </Text>
                 </View>
                 {item.description ? <Text variant="muted">{item.description}</Text> : null}

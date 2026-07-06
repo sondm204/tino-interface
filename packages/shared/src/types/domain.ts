@@ -17,6 +17,7 @@ export type Wallet = {
   owner_id: string;
   created_at: string;
   updated_at: string | null;
+  deleted_at?: string | null;
   total_amount?: number;
   user_share_amount?: number;
 };

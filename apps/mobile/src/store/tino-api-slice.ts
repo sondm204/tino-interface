@@ -94,10 +94,10 @@ export const tinoApiSlice = createApi({
     }),
     getWallets: builder.query<
       PageableResponse<Wallet>,
-      { page?: number; size?: number } | void
+      { page?: number; size?: number; month?: string } | void
     >({
       queryFn: (args) =>
-        runApi(() => tinoApi.listWallets(args?.page, args?.size)),
+        runApi(() => tinoApi.listWallets(args?.page, args?.size, args?.month)),
       providesTags: (result) =>
         result
           ? [

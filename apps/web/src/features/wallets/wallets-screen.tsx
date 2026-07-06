@@ -22,12 +22,16 @@ import {
 export function WalletsScreen() {
   const currentUser = useAppSelector((state) => state.auth.user);
   const authHydrated = useAppSelector((state) => state.auth.hydrated);
+  const currentMonth = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  }, []);
   const {
     data: walletsData,
     error: walletsError,
     isLoading: walletsLoading,
   } = useGetWalletsQuery(
-    { page: 1, size: 20 },
+    { page: 1, size: 20, month: currentMonth },
     { skip: !authHydrated || !currentUser }
   );
   const [createWallet, createWalletState] = useCreateWalletMutation();
@@ -208,7 +212,7 @@ export function WalletsScreen() {
                     <div className="text-right">
                       <p className="text-sm font-semibold">{wallet.currency}</p>
                       <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {formatCurrency(wallet.total_amount ?? 0, wallet.currency)}
+                        {formatCurrency(wallet.user_share_amount ?? 0, wallet.currency)}
                       </p>
                     </div>
                   </Link>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   FormEvent,
   Fragment,
@@ -48,7 +49,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import {
   formatCurrency,
   formatDate,
+  formatDateInput,
   formatMoneyInput,
+  parseDateInput,
   parseMoneyInput,
 } from "@/src/lib/format";
 import { settlementStatusLabel, splitMethodLabel } from "@/src/lib/labels";
@@ -56,6 +59,7 @@ import { useAppSelector } from "@/src/store/hooks";
 import {
   useCreateExpenseMutation,
   useCreateTelegramWalletConnectCodeMutation,
+  useDeleteWalletMutation,
   useDeleteExpenseAttachmentMutation,
   useDeleteExpenseMutation,
   useGetExpensesQuery,
@@ -98,6 +102,7 @@ function getSplitAmount(
 }
 
 export function WalletDetailScreen({ walletId }: { walletId: string }) {
+  const router = useRouter();
   const currentUser = useAppSelector((state) => state.auth.user);
   const authHydrated = useAppSelector((state) => state.auth.hydrated);
   const [month, setMonth] = useState(currentMonth());
@@ -133,6 +138,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
     useDeleteExpenseAttachmentMutation();
   const [updateExpense, updateExpenseState] = useUpdateExpenseMutation();
   const [deleteExpense] = useDeleteExpenseMutation();
+  const [deleteWallet, deleteWalletState] = useDeleteWalletMutation();
   const users = useMemo(
     () => walletMembers?.map((member) => member.user) ?? [],
     [walletMembers]
@@ -158,7 +164,9 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
-  const [expenseDate, setExpenseDate] = useState(new Date().toISOString().slice(0, 10));
+  const [expenseDate, setExpenseDate] = useState(
+    formatDateInput(new Date().toISOString().slice(0, 10))
+  );
   const [splitMethod, setSplitMethod] = useState<"equal" | "amount" | "percentage" | "shares">("equal");
   const [splitValues, setSplitValues] = useState<Record<string, string>>({});
   const [newAttachmentFiles, setNewAttachmentFiles] = useState<File[]>([]);
@@ -188,8 +196,8 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
   const queryError = [membersError, expensesError, summaryError]
     .map((error) =>
       error &&
-      "message" in error &&
-      typeof error.message === "string"
+        "message" in error &&
+        typeof error.message === "string"
         ? error.message
         : null
     )
@@ -356,6 +364,12 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
 
     try {
       const totalAmount = parseMoneyInput(amount);
+      const expenseDateValue = parseDateInput(expenseDate);
+
+      if (!expenseDateValue) {
+        throw new Error("Ngày chi phải đúng định dạng dd/MM/yyyy.");
+      }
+
       const splits = buildExpenseSplits(totalAmount);
       const createdExpense = await createExpense({
         walletId: wallet.id,
@@ -365,7 +379,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
           total_amount: totalAmount,
           currency: wallet.currency,
           paid_by_user_id: currentUser.id,
-          expense_date: expenseDate,
+          expense_date: expenseDateValue,
           split_method: splitMethod,
           splits,
         },
@@ -392,7 +406,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
       setTitle("");
       setDescription("");
       setAmount("");
-      setExpenseDate(new Date().toISOString().slice(0, 10));
+      setExpenseDate(formatDateInput(new Date().toISOString().slice(0, 10)));
       setSplitMethod("equal");
       setSplitValues({});
       setNewAttachmentFiles([]);
@@ -400,9 +414,9 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
     } catch (err) {
       const message =
         typeof err === "object" &&
-        err !== null &&
-        "message" in err &&
-        typeof err.message === "string"
+          err !== null &&
+          "message" in err &&
+          typeof err.message === "string"
           ? err.message
           : "Không thể tạo chi tiêu";
       setFormError(message);
@@ -421,11 +435,33 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
     } catch (err) {
       const message =
         typeof err === "object" &&
-        err !== null &&
-        "message" in err &&
-        typeof err.message === "string"
+          err !== null &&
+          "message" in err &&
+          typeof err.message === "string"
           ? err.message
           : "Không thể xóa chi tiêu";
+      setFormError(message);
+      toast.error(message);
+    }
+  }
+
+  async function handleDeleteWallet() {
+    if (!wallet) {
+      return;
+    }
+
+    try {
+      await deleteWallet(wallet.id).unwrap();
+      toast.success("Xóa ví thành công");
+      router.replace("/wallets");
+    } catch (err) {
+      const message =
+        typeof err === "object" &&
+          err !== null &&
+          "message" in err &&
+          typeof err.message === "string"
+          ? err.message
+          : "Không thể xóa ví";
       setFormError(message);
       toast.error(message);
     }
@@ -458,7 +494,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
     setEditTitle(expense.title);
     setEditDescription(expense.description || "");
     setEditAmount(formatMoneyInput(expense.total_amount));
-    setEditExpenseDate(expense.expense_date.slice(0, 10));
+    setEditExpenseDate(formatDateInput(expense.expense_date));
     setEditPaidByUserId(expense.paid_by_user_id);
     setEditSplitMethod(expense.split_method);
     setEditSplitValues(
@@ -492,9 +528,9 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
       setSelectedExpense((current) =>
         current
           ? {
-              ...current,
-              attachments: [...(current.attachments ?? []), ...uploaded],
-            }
+            ...current,
+            attachments: [...(current.attachments ?? []), ...uploaded],
+          }
           : current
       );
       toast.success("Đã thêm ảnh vào khoản chi");
@@ -515,11 +551,11 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
       setSelectedExpense((current) =>
         current
           ? {
-              ...current,
-              attachments: (current.attachments ?? []).filter(
-                (attachment) => attachment.id !== attachmentId
-              ),
-            }
+            ...current,
+            attachments: (current.attachments ?? []).filter(
+              (attachment) => attachment.id !== attachmentId
+            ),
+          }
           : current
       );
       toast.success("Đã xóa ảnh");
@@ -543,6 +579,12 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
     }
 
     try {
+      const editExpenseDateValue = parseDateInput(editExpenseDate);
+
+      if (!editExpenseDateValue) {
+        throw new Error("Ngày chi phải đúng định dạng dd/MM/yyyy.");
+      }
+
       let splits: ExpenseSplit[] = [];
 
       if (wallet.type === "shared" && editSplitMethod !== "equal") {
@@ -596,7 +638,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
         expenseId: selectedExpense.id,
         payload: {
           description: editDescription.trim() || null,
-          expense_date: editExpenseDate,
+          expense_date: editExpenseDateValue,
           paid_by_user_id: editPaidByUserId,
           split_method: editSplitMethod,
           splits,
@@ -683,7 +725,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
       subtitle="Chi tiết ví"
       title={wallet?.name || "Ví chi tiêu"}
     >
-      <div className="mb-4">
+      <div className="mb-4 flex justify-between">
         <Link
           className="text-sm flex items-center gap-2 font-medium text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50"
           href="/wallets"
@@ -691,6 +733,25 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
           <ArrowLeft size={16} />
           Quay lại danh sách ví
         </Link>
+        <div className="flex justify-end">
+          <ConfirmDialog
+            confirmText="Xóa ví"
+            description="Ví sẽ được ẩn khỏi danh sách và không thể tiếp tục ghi chi tiêu. Các dữ liệu cũ vẫn được giữ trong hệ thống."
+            destructive
+            onConfirm={handleDeleteWallet}
+            title="Xóa ví này?"
+            trigger={
+              <Button
+                disabled={deleteWalletState.isLoading}
+                type="button"
+                variant="destructive"
+              >
+                <Trash2 size={16} />
+                {deleteWalletState.isLoading ? "Đang xóa..." : "Xóa ví"}
+              </Button>
+            }
+          />
+        </div>
       </div>
 
       {error ? (
@@ -742,7 +803,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
 
           {wallet && currentUser?.id === wallet.owner_id ? (
             <Card className="p-4">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 font-semibold">
                     <Send size={18} />
@@ -1060,85 +1121,86 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
                   label="Ngày"
                   onChange={(event) => setExpenseDate(event.target.value)}
                   required
-                  type="date"
+                  placeholder="dd/MM/yyyy"
+                  type="text"
                   value={expenseDate}
                 />
               </div>
               {wallet?.type === "shared" && (
                 <>
-                <SelectField
-                  label="Cách chia"
-                  onValueChange={(value) => {
-                    setSplitMethod(
-                      value as "equal" | "amount" | "percentage" | "shares"
-                    );
-                    setSplitValues({});
-                  }}
-                  options={[
-                    { value: "equal", label: "Chia đều" },
-                    { value: "amount", label: "Theo số tiền" },
-                    { value: "percentage", label: "Theo phần trăm" },
-                    { value: "shares", label: "Theo phần" },
-                  ]}
-                  value={splitMethod}
-                />
-                {splitMethod !== "equal" ? (
-                  <div className="space-y-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
-                    <div>
-                      <p className="text-sm font-semibold">
-                        Giá trị chia theo thành viên
-                      </p>
-                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                        Nhập {splitInputMeta.label.toLowerCase()} cho từng thành viên.
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      {splitMembers.map((userId) => (
-                        <div
-                          className="grid grid-cols-[minmax(0,1fr)_130px] items-center gap-3"
-                          key={userId}
-                        >
-                          <p className="truncate text-sm font-medium">
-                            {getUserName(userId)}
-                          </p>
-                          <div className="flex items-center gap-2">
-                            <input
-                              className="h-9 min-w-0 rounded-md border border-zinc-200 bg-white px-3 text-right text-sm outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950"
-                              min="0"
-                               inputMode={
-                                 splitMethod === "amount" ? "numeric" : "decimal"
-                               }
-                               onChange={(event) =>
-                                 setSplitValues((current) => ({
-                                   ...current,
-                                   [userId]:
-                                     splitMethod === "amount"
-                                       ? formatMoneyInput(event.target.value)
-                                       : event.target.value,
-                                 }))
-                               }
-                              placeholder="0"
-                              step="0.01"
-                               type="text"
-                              value={splitValues[userId] ?? ""}
-                            />
-                            <span className="w-10 text-xs text-zinc-500 dark:text-zinc-400">
-                              {splitInputMeta.suffix}
-                            </span>
+                  <SelectField
+                    label="Cách chia"
+                    onValueChange={(value) => {
+                      setSplitMethod(
+                        value as "equal" | "amount" | "percentage" | "shares"
+                      );
+                      setSplitValues({});
+                    }}
+                    options={[
+                      { value: "equal", label: "Chia đều" },
+                      { value: "amount", label: "Theo số tiền" },
+                      { value: "percentage", label: "Theo phần trăm" },
+                      { value: "shares", label: "Theo phần" },
+                    ]}
+                    value={splitMethod}
+                  />
+                  {splitMethod !== "equal" ? (
+                    <div className="space-y-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+                      <div>
+                        <p className="text-sm font-semibold">
+                          Giá trị chia theo thành viên
+                        </p>
+                        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                          Nhập {splitInputMeta.label.toLowerCase()} cho từng thành viên.
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        {splitMembers.map((userId) => (
+                          <div
+                            className="grid grid-cols-[minmax(0,1fr)_130px] items-center gap-3"
+                            key={userId}
+                          >
+                            <p className="truncate text-sm font-medium">
+                              {getUserName(userId)}
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <input
+                                className="h-9 min-w-0 rounded-md border border-zinc-200 bg-white px-3 text-right text-sm outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950"
+                                min="0"
+                                inputMode={
+                                  splitMethod === "amount" ? "numeric" : "decimal"
+                                }
+                                onChange={(event) =>
+                                  setSplitValues((current) => ({
+                                    ...current,
+                                    [userId]:
+                                      splitMethod === "amount"
+                                        ? formatMoneyInput(event.target.value)
+                                        : event.target.value,
+                                  }))
+                                }
+                                placeholder="0"
+                                step="0.01"
+                                type="text"
+                                value={splitValues[userId] ?? ""}
+                              />
+                              <span className="w-10 text-xs text-zinc-500 dark:text-zinc-400">
+                                {splitInputMeta.suffix}
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        Tổng đang nhập:{" "}
+                        <span className="font-medium text-zinc-950 dark:text-zinc-50">
+                          {splitMethod === "amount"
+                            ? formatCurrency(splitValueTotal, wallet.currency)
+                            : `${splitValueTotal} ${splitInputMeta.suffix}`}
+                        </span>
+                      </p>
                     </div>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      Tổng đang nhập:{" "}
-                      <span className="font-medium text-zinc-950 dark:text-zinc-50">
-                        {splitMethod === "amount"
-                          ? formatCurrency(splitValueTotal, wallet.currency)
-                          : `${splitValueTotal} ${splitInputMeta.suffix}`}
-                      </span>
-                    </p>
-                  </div>
-                ) : null}
+                  ) : null}
                 </>
               )}
 
@@ -1253,7 +1315,8 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
                     label="Ngày chi"
                     onChange={(event) => setEditExpenseDate(event.target.value)}
                     required
-                    type="date"
+                    placeholder="dd/MM/yyyy"
+                    type="text"
                     value={editExpenseDate}
                   />
                 </div>
@@ -1499,7 +1562,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
                             {getUserName(split.userId)}
                           </p>
                           {selectedExpense.split_method === "percentage" &&
-                          split.percentage ? (
+                            split.percentage ? (
                             <p className="text-xs text-zinc-500 dark:text-zinc-400">
                               {Number(split.percentage)}%
                             </p>

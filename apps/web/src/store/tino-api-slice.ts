@@ -97,10 +97,10 @@ export const tinoApiSlice = createApi({
     }),
     getWallets: builder.query<
       PageableResponse<Wallet>,
-      { page?: number; size?: number } | void
+      { page?: number; size?: number; month?: string } | void
     >({
       queryFn: (args) =>
-        runApi(() => tinoApi.listWallets(args?.page, args?.size)),
+        runApi(() => tinoApi.listWallets(args?.page, args?.size, args?.month)),
       providesTags: (result) =>
         result
           ? [
@@ -126,6 +126,15 @@ export const tinoApiSlice = createApi({
       queryFn: ({ walletId, userId }) =>
         runApi(() => tinoApi.addWalletMember(walletId, userId)),
       invalidatesTags: (_result, _error, { walletId }) => [
+        { type: "Wallets", id: walletId },
+        { type: "WalletMembers", id: walletId },
+        { type: "Summary", id: walletId },
+      ],
+    }),
+    deleteWallet: builder.mutation<{ id: string }, string>({
+      queryFn: (walletId) => runApi(() => tinoApi.deleteWallet(walletId)),
+      invalidatesTags: (_result, _error, walletId) => [
+        { type: "Wallets", id: "LIST" },
         { type: "Wallets", id: walletId },
         { type: "WalletMembers", id: walletId },
         { type: "Summary", id: walletId },
@@ -257,6 +266,7 @@ export const {
   useCreateWalletMutation,
   useDeleteExpenseMutation,
   useDeleteExpenseAttachmentMutation,
+  useDeleteWalletMutation,
   useGetCurrentUserQuery,
   useGetNotificationsQuery,
   useGetUnreadNotificationCountQuery,

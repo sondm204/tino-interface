@@ -115,11 +115,15 @@ export const tinoApi = {
       `/api/telegram/wallets/${walletId}/connect-code`,
       { method: "POST" }
     ),
-  listWallets: (page = 1, size = 20) => {
+  listWallets: (page = 1, size = 20, month?: string) => {
     const params = new URLSearchParams({
       page: String(page),
       size: String(size),
     });
+
+    if (month) {
+      params.set("month", month);
+    }
 
     return apiRequest<PageableResponse<Wallet>>(`/api/wallets?${params.toString()}`);
   },
@@ -135,6 +139,10 @@ export const tinoApi = {
     apiRequest<WalletMember>(`/api/wallets/${walletId}/members`, {
       method: "POST",
       body: JSON.stringify({ user_id: userId }),
+    }),
+  deleteWallet: (walletId: string) =>
+    apiRequest<{ id: string }>(`/api/wallets/${walletId}`, {
+      method: "DELETE",
     }),
   getSummary: (walletId: string, month: string) =>
     apiRequest<WalletSummary>(`/api/wallets/${walletId}/summary?month=${month}`),
