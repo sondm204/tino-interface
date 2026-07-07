@@ -50,6 +50,7 @@ import {
   useGetExpensesQuery,
   useGetSummaryQuery,
   useGetWalletMembersQuery,
+  useInviteWalletMemberMutation,
   useUpdateExpenseMutation,
   useUploadExpenseAttachmentMutation,
 } from "@/store/tino-api-slice";
@@ -130,6 +131,7 @@ export function WalletDetailScreen() {
   const [previewAttachment, setPreviewAttachment] =
     useState<Attachment | null>(null);
   const [telegramCode, setTelegramCode] = useState<TelegramCode | null>(null);
+  const [inviteEmail, setInviteEmail] = useState("");
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [editTitle, setEditTitle] = useState("");
@@ -164,6 +166,8 @@ export function WalletDetailScreen() {
     useDeleteExpenseAttachmentMutation();
   const [updateExpense, updateState] = useUpdateExpenseMutation();
   const [deleteExpense, deleteState] = useDeleteExpenseMutation();
+  const [inviteWalletMember, inviteWalletMemberState] =
+    useInviteWalletMemberMutation();
 
   const memberNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -602,6 +606,30 @@ export function WalletDetailScreen() {
     alert("Đã sao chép", "Lệnh kết nối Telegram đã được sao chép.");
   }
 
+  async function handleInviteWalletMember() {
+    if (!walletId || !inviteEmail.trim()) {
+      alert("Thiếu thông tin", "Vui lòng nhập email thành viên.");
+      return;
+    }
+
+    const result = await inviteWalletMember({
+      walletId,
+      email: inviteEmail.trim(),
+    });
+
+    if ("error" in result) {
+      alert("Không thể mời", result.error?.message || "Đã có lỗi xảy ra.");
+      return;
+    }
+
+    setInviteEmail("");
+    alert(
+      "Đã mời thành viên",
+      result.data.email_sent
+        ? "Thông báo in-app và email đã được gửi."
+        : "Thông báo in-app đã được gửi. Email chưa được cấu hình."
+    );
+  }
   if (expensesQuery.isLoading || summaryQuery.isLoading) {
     return <LoadingState />;
   }
@@ -761,7 +789,25 @@ export function WalletDetailScreen() {
                   {telegramCode ? "Tạo mã mới" : "Tạo mã"}
                 </Button>
               </View>
-            </Card>
+              {summaryQuery.data?.wallet.type === "shared" ? (
+                <View className="gap-2 rounded-xl border border-dashed border-slate-300 p-3 dark:border-slate-700">
+                  <Text className="font-semibold">Mời thành viên</Text>
+                  <Input
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    onChangeText={setInviteEmail}
+                    placeholder="name@example.com"
+                    value={inviteEmail}
+                  />
+                  <Button
+                    loading={inviteWalletMemberState.isLoading}
+                    onPress={handleInviteWalletMember}
+                  >
+                    <Plus color="#fff" size={16} />
+                    Mời vào ví
+                  </Button>
+                </View>
+              ) : null}            </Card>
           ) : null}
         </View>
 

@@ -122,6 +122,24 @@ export const tinoApiSlice = createApi({
         { type: "WalletMembers", id: walletId },
       ],
     }),
+    inviteWalletMember: builder.mutation<
+      {
+        member: WalletMember;
+        user: User;
+        notification_sent: boolean;
+        email_sent: boolean;
+      },
+      { walletId: string; email: string }
+    >({
+      queryFn: ({ walletId, email }) =>
+        runApi(() => tinoApi.inviteWalletMember(walletId, email)),
+      invalidatesTags: (_result, _error, { walletId }) => [
+        { type: "Wallets", id: walletId },
+        { type: "WalletMembers", id: walletId },
+        { type: "Summary", id: walletId },
+        "Notifications",
+      ],
+    }),
     getExpenses: builder.query<
       PageableResponse<Expense>,
       { walletId: string; page?: number; size?: number; month?: string }
@@ -248,6 +266,7 @@ export const {
   useGetSummaryQuery,
   useGetWalletMembersQuery,
   useGetWalletsQuery,
+  useInviteWalletMemberMutation,
   useLoginMutation,
   useMarkAllNotificationsReadMutation,
   useMarkNotificationReadMutation,

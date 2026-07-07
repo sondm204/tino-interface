@@ -142,6 +142,16 @@ export const tinoApi = {
     }),
   listWalletMembers: (walletId: string) =>
     apiRequest<WalletMemberWithUser[]>(`/api/wallets/${walletId}/members`),
+  inviteWalletMember: (walletId: string, email: string) =>
+    apiRequest<{
+      member: WalletMember;
+      user: User;
+      notification_sent: boolean;
+      email_sent: boolean;
+    }>(`/api/wallets/${walletId}/invitations`, {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
   getSummary: (walletId: string, month: string) =>
     apiRequest<WalletSummary>(`/api/wallets/${walletId}/summary?month=${month}`),
   listExpenses: (walletId: string, page = 1, size = 20, month?: string) => {

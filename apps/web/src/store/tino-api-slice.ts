@@ -85,6 +85,9 @@ export const tinoApiSlice = createApi({
       queryFn: (file) => runApi(() => tinoApi.uploadAvatar(file)),
       invalidatesTags: ["Auth"],
     }),
+    findUserByEmail: builder.query<User, string>({
+      queryFn: (email) => runApi(() => tinoApi.findUserByEmail(email)),
+    }),
     createTelegramLinkCode: builder.mutation<TelegramCode, void>({
       queryFn: () => runApi(() => tinoApi.createTelegramLinkCode()),
     }),
@@ -129,6 +132,24 @@ export const tinoApiSlice = createApi({
         { type: "Wallets", id: walletId },
         { type: "WalletMembers", id: walletId },
         { type: "Summary", id: walletId },
+      ],
+    }),
+    inviteWalletMember: builder.mutation<
+      {
+        member: WalletMember;
+        user: User;
+        notification_sent: boolean;
+        email_sent: boolean;
+      },
+      { walletId: string; email: string }
+    >({
+      queryFn: ({ walletId, email }) =>
+        runApi(() => tinoApi.inviteWalletMember(walletId, email)),
+      invalidatesTags: (_result, _error, { walletId }) => [
+        { type: "Wallets", id: walletId },
+        { type: "WalletMembers", id: walletId },
+        { type: "Summary", id: walletId },
+        "Notifications",
       ],
     }),
     deleteWallet: builder.mutation<{ id: string }, string>({
@@ -268,12 +289,14 @@ export const {
   useDeleteExpenseAttachmentMutation,
   useDeleteWalletMutation,
   useGetCurrentUserQuery,
+  useFindUserByEmailQuery,
   useGetNotificationsQuery,
   useGetUnreadNotificationCountQuery,
   useGetExpensesQuery,
   useGetWalletMembersQuery,
   useGetWalletsQuery,
   useGetSummaryQuery,
+  useInviteWalletMemberMutation,
   useLoginMutation,
   useMarkAllNotificationsReadMutation,
   useMarkNotificationReadMutation,

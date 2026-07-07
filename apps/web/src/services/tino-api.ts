@@ -106,6 +106,11 @@ export const tinoApi = {
       body: formData,
     });
   },
+  findUserByEmail: (email: string) => {
+    const params = new URLSearchParams({ email });
+
+    return apiRequest<User>(`/api/users/lookup?${params.toString()}`);
+  },
   createTelegramLinkCode: () =>
     apiRequest<TelegramCode>("/api/telegram/link-code", {
       method: "POST",
@@ -139,6 +144,16 @@ export const tinoApi = {
     apiRequest<WalletMember>(`/api/wallets/${walletId}/members`, {
       method: "POST",
       body: JSON.stringify({ user_id: userId }),
+    }),
+  inviteWalletMember: (walletId: string, email: string) =>
+    apiRequest<{
+      member: WalletMember;
+      user: User;
+      notification_sent: boolean;
+      email_sent: boolean;
+    }>(`/api/wallets/${walletId}/invitations`, {
+      method: "POST",
+      body: JSON.stringify({ email }),
     }),
   deleteWallet: (walletId: string) =>
     apiRequest<{ id: string }>(`/api/wallets/${walletId}`, {

@@ -62,14 +62,16 @@ import {
   useDeleteWalletMutation,
   useDeleteExpenseAttachmentMutation,
   useDeleteExpenseMutation,
+  useFindUserByEmailQuery,
   useGetExpensesQuery,
   useGetWalletMembersQuery,
   useGetSummaryQuery,
+  useInviteWalletMemberMutation,
   useUpdateExpenseMutation,
   useUploadExpenseAttachmentMutation,
 } from "@/src/store/tino-api-slice";
 import type { TelegramCode } from "@/src/services/tino-api";
-import type { Attachment, Expense, ExpenseSplit } from "@/src/types/domain";
+import type { Attachment, Expense, ExpenseSplit, User } from "@/src/types/domain";
 
 function currentMonth() {
   return new Date().toISOString().slice(0, 7);
@@ -139,6 +141,8 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
   const [updateExpense, updateExpenseState] = useUpdateExpenseMutation();
   const [deleteExpense] = useDeleteExpenseMutation();
   const [deleteWallet, deleteWalletState] = useDeleteWalletMutation();
+  const [inviteWalletMember, inviteWalletMemberState] =
+    useInviteWalletMemberMutation();
   const users = useMemo(
     () => walletMembers?.map((member) => member.user) ?? [],
     [walletMembers]
@@ -171,6 +175,17 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
   const [splitValues, setSplitValues] = useState<Record<string, string>>({});
   const [newAttachmentFiles, setNewAttachmentFiles] = useState<File[]>([]);
   const [telegramCode, setTelegramCode] = useState<TelegramCode | null>(null);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [debouncedInviteEmail, setDebouncedInviteEmail] = useState("");
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const isInviteEmailValid = inviteEmail.trim().includes("@");
+  const {
+    data: inviteUser,
+    error: inviteUserError,
+    isFetching: inviteUserFetching,
+  } = useFindUserByEmailQuery(debouncedInviteEmail, {
+    skip: !inviteDialogOpen || !debouncedInviteEmail,
+  });
   const newAttachmentPreviews = useMemo(
     () =>
       newAttachmentFiles.map((file) => ({
@@ -206,6 +221,11 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
   const loading =
     !authHydrated || membersLoading || expensesLoading || summaryLoading;
   const saving = createExpenseState.isLoading;
+  const inviteUserAlreadyMember = Boolean(
+    inviteUser &&
+      walletMembers?.some((member) => member.user_id === inviteUser.id)
+  );
+  const inviteLookupError = inviteUserError?.message ?? null;
 
   useEffect(
     () => () => {
@@ -213,6 +233,26 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
     },
     [newAttachmentPreviews]
   );
+
+  useEffect(() => {
+    if (!inviteDialogOpen) {
+      setDebouncedInviteEmail("");
+      return;
+    }
+
+    const email = inviteEmail.trim().toLowerCase();
+
+    if (!email.includes("@")) {
+      setDebouncedInviteEmail("");
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setDebouncedInviteEmail(email);
+    }, 500);
+
+    return () => window.clearTimeout(timeout);
+  }, [inviteDialogOpen, inviteEmail]);
 
   const currentUserWalletExpense = useMemo(() => {
     if (!currentUser || !summary) {
@@ -467,6 +507,39 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
     }
   }
 
+  async function handleInviteWalletMember(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!wallet || !inviteUser) {
+      toast.error("Vui lòng chọn người dùng hợp lệ trước khi mời.");
+      return;
+    }
+
+    try {
+      const result = await inviteWalletMember({
+        walletId: wallet.id,
+        email: inviteUser.email,
+      }).unwrap();
+      setInviteEmail("");
+      setDebouncedInviteEmail("");
+      setInviteDialogOpen(false);
+      toast.success(
+        result.email_sent
+          ? "Đã mời thành viên và gửi email."
+          : "Đã mời thành viên. Email chưa được cấu hình nên chưa gửi."
+      );
+    } catch (err) {
+      const message =
+        typeof err === "object" &&
+        err !== null &&
+        "message" in err &&
+        typeof err.message === "string"
+          ? err.message
+          : "Không thể mời thành viên.";
+      toast.error(message);
+    }
+  }
+
   async function handleCreateTelegramWalletCode() {
     if (!wallet) return;
 
@@ -656,6 +729,26 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
 
   function handleMonthChange(value: string) {
     setMonth(value);
+  }
+
+  function handleInviteDialogOpenChange(open: boolean) {
+    setInviteDialogOpen(open);
+
+    if (!open) {
+      setInviteEmail("");
+      setDebouncedInviteEmail("");
+    }
+  }
+
+  function getUserProfileInitials(user: Pick<User, "display_name" | "email">) {
+    const source = user.display_name || user.email;
+    const words = source.trim().split(/\s+/).filter(Boolean);
+
+    if (words.length >= 2) {
+      return `${words[0][0]}${words[1][0]}`.toUpperCase();
+    }
+
+    return source.slice(0, 2).toUpperCase();
   }
 
   function getUserInitials(userId: string) {
@@ -978,6 +1071,19 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
           <section className="grid gap-5 xl:grid-cols-2">
             <Card>
               <CardHeader
+                action={
+                  wallet?.type === "shared" && currentUser?.id === wallet.owner_id ? (
+                    <Button
+                      aria-label="Mời thành viên"
+                      onClick={() => setInviteDialogOpen(true)}
+                      size="icon"
+                      type="button"
+                      variant="outline"
+                    >
+                      <Plus size={16} />
+                    </Button>
+                  ) : null
+                }
                 description="Tổng số tiền từng thành viên đã thanh toán trong tháng"
                 title="Thành viên đã chi"
               />
@@ -1270,6 +1376,88 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
         </Card>
       </div>
 
+      <Dialog onOpenChange={handleInviteDialogOpenChange} open={inviteDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <form className="space-y-4" onSubmit={handleInviteWalletMember}>
+            <DialogHeader>
+              <DialogTitle>Mời thành viên</DialogTitle>
+              <DialogDescription>
+                Nhập email để tìm người dùng đã có tài khoản Tino, sau đó chọn mời vào ví.
+              </DialogDescription>
+            </DialogHeader>
+
+            <TextField
+              label="Email"
+              onChange={(event) => setInviteEmail(event.target.value)}
+              placeholder="name@example.com"
+              type="email"
+              value={inviteEmail}
+            />
+
+            <div className="min-h-20 rounded-md border border-zinc-200 p-3 dark:border-zinc-800">
+              {!isInviteEmailValid ? (
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  Nhập email hợp lệ để tìm người dùng.
+                </p>
+              ) : inviteUserFetching ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-5 w-40" />
+                  <Skeleton className="h-4 w-56" />
+                </div>
+              ) : inviteUser ? (
+                <div className="flex items-center gap-3">
+                  <div className="flex size-11 items-center justify-center rounded-full bg-zinc-900 text-sm font-semibold text-white dark:bg-zinc-100 dark:text-zinc-950">
+                    {getUserProfileInitials(inviteUser)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">
+                      {inviteUser.display_name || inviteUser.email}
+                    </p>
+                    <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
+                      {inviteUser.email}
+                    </p>
+                    {inviteUserAlreadyMember ? (
+                      <p className="mt-1 text-xs font-medium text-amber-600">
+                        Người dùng này đã là thành viên của ví.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : debouncedInviteEmail && inviteLookupError ? (
+                <p className="text-sm text-rose-600 dark:text-rose-400">
+                  Không tìm thấy người dùng với email này.
+                </p>
+              ) : (
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  Dừng nhập một chút để hệ thống tự tìm người dùng.
+                </p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                onClick={() => handleInviteDialogOpenChange(false)}
+                type="button"
+                variant="outline"
+              >
+                Hủy
+              </Button>
+              <Button
+                disabled={
+                  inviteWalletMemberState.isLoading ||
+                  inviteUserFetching ||
+                  !inviteUser ||
+                  inviteUserAlreadyMember
+                }
+                type="submit"
+              >
+                <Plus size={16} />
+                {inviteWalletMemberState.isLoading ? "Đang mời..." : "Mời người này"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
       <Dialog
         onOpenChange={(open) => {
           if (!open) {
