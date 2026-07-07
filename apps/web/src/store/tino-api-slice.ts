@@ -161,6 +161,19 @@ export const tinoApiSlice = createApi({
         { type: "Summary", id: walletId },
       ],
     }),
+    leaveWallet: builder.mutation<
+      { member: WalletMember; new_owner?: WalletMember; new_owner_id: string },
+      { walletId: string; newOwnerUserId?: string }
+    >({
+      queryFn: ({ walletId, newOwnerUserId }) =>
+        runApi(() => tinoApi.leaveWallet(walletId, newOwnerUserId)),
+      invalidatesTags: (_result, _error, { walletId }) => [
+        { type: "Wallets", id: "LIST" },
+        { type: "Wallets", id: walletId },
+        { type: "WalletMembers", id: walletId },
+        { type: "Summary", id: walletId },
+      ],
+    }),
     getWalletMembers: builder.query<WalletMemberWithUser[], string>({
       queryFn: (walletId) =>
         runApi(() => tinoApi.listWalletMembers(walletId)),
@@ -297,6 +310,7 @@ export const {
   useGetWalletsQuery,
   useGetSummaryQuery,
   useInviteWalletMemberMutation,
+  useLeaveWalletMutation,
   useLoginMutation,
   useMarkAllNotificationsReadMutation,
   useMarkNotificationReadMutation,

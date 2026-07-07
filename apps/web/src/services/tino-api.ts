@@ -159,6 +159,17 @@ export const tinoApi = {
     apiRequest<{ id: string }>(`/api/wallets/${walletId}`, {
       method: "DELETE",
     }),
+  leaveWallet: (walletId: string, newOwnerUserId?: string) =>
+    apiRequest<{
+      member: WalletMember;
+      new_owner?: WalletMember;
+      new_owner_id: string;
+    }>(`/api/wallets/${walletId}/leave`, {
+      method: "POST",
+      body: JSON.stringify(
+        newOwnerUserId ? { new_owner_user_id: newOwnerUserId } : {}
+      ),
+    }),
   getSummary: (walletId: string, month: string) =>
     apiRequest<WalletSummary>(`/api/wallets/${walletId}/summary?month=${month}`),
   listExpenses: (walletId: string, page = 1, size = 20, month?: string) => {

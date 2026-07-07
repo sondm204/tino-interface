@@ -15,6 +15,7 @@ import {
   CalendarDays,
   Copy,
   ImagePlus,
+  LogOut,
   Plus,
   ReceiptText,
   Send,
@@ -67,6 +68,7 @@ import {
   useGetWalletMembersQuery,
   useGetSummaryQuery,
   useInviteWalletMemberMutation,
+  useLeaveWalletMutation,
   useUpdateExpenseMutation,
   useUploadExpenseAttachmentMutation,
 } from "@/src/store/tino-api-slice";
@@ -141,6 +143,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
   const [updateExpense, updateExpenseState] = useUpdateExpenseMutation();
   const [deleteExpense] = useDeleteExpenseMutation();
   const [deleteWallet, deleteWalletState] = useDeleteWalletMutation();
+  const [leaveWallet, leaveWalletState] = useLeaveWalletMutation();
   const [inviteWalletMember, inviteWalletMemberState] =
     useInviteWalletMemberMutation();
   const users = useMemo(
@@ -178,6 +181,8 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
   const [inviteEmail, setInviteEmail] = useState("");
   const [debouncedInviteEmail, setDebouncedInviteEmail] = useState("");
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [leaveOwnerDialogOpen, setLeaveOwnerDialogOpen] = useState(false);
+  const [newOwnerUserId, setNewOwnerUserId] = useState("");
   const isInviteEmailValid = inviteEmail.trim().includes("@");
   const {
     data: inviteUser,
@@ -226,6 +231,21 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
       walletMembers?.some((member) => member.user_id === inviteUser.id)
   );
   const inviteLookupError = inviteUserError?.message ?? null;
+  const currentMember = walletMembers?.find(
+    (member) => member.user_id === currentUser?.id
+  );
+  const isWalletOwner = Boolean(
+    wallet && currentUser && wallet.owner_id === currentUser.id
+  );
+  const canLeaveWallet = Boolean(
+    wallet && currentUser && wallet.type === "shared" && currentMember
+  );
+  const ownerTransferOptions = (walletMembers ?? [])
+    .filter((member) => member.user_id !== currentUser?.id)
+    .map((member) => ({
+      value: member.user_id,
+      label: member.user.display_name || member.user.email,
+    }));
 
   useEffect(
     () => () => {
@@ -502,6 +522,35 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
           typeof err.message === "string"
           ? err.message
           : "Không thể xóa ví";
+      setFormError(message);
+      toast.error(message);
+    }
+  }
+
+  async function handleLeaveWallet(newOwnerId?: string) {
+    if (!wallet) {
+      return;
+    }
+
+    if (isWalletOwner && !newOwnerId) {
+      toast.error("Vui lòng chọn thành viên mới làm chủ ví trước khi rời nhóm.");
+      return;
+    }
+
+    try {
+      await leaveWallet({ walletId: wallet.id, newOwnerUserId: newOwnerId }).unwrap();
+      toast.success("Đã rời nhóm thành công");
+      setLeaveOwnerDialogOpen(false);
+      setNewOwnerUserId("");
+      router.replace("/wallets");
+    } catch (err) {
+      const message =
+        typeof err === "object" &&
+        err !== null &&
+        "message" in err &&
+        typeof err.message === "string"
+          ? err.message
+          : "Không thể rời nhóm";
       setFormError(message);
       toast.error(message);
     }
@@ -826,24 +875,58 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
           <ArrowLeft size={16} />
           Quay lại danh sách ví
         </Link>
-        <div className="flex justify-end">
-          <ConfirmDialog
-            confirmText="Xóa ví"
-            description="Ví sẽ được ẩn khỏi danh sách và không thể tiếp tục ghi chi tiêu. Các dữ liệu cũ vẫn được giữ trong hệ thống."
-            destructive
-            onConfirm={handleDeleteWallet}
-            title="Xóa ví này?"
-            trigger={
-              <Button
-                disabled={deleteWalletState.isLoading}
-                type="button"
-                variant="destructive"
-              >
-                <Trash2 size={16} />
-                {deleteWalletState.isLoading ? "Đang xóa..." : "Xóa ví"}
-              </Button>
-            }
-          />
+        <div className="flex justify-end gap-2">
+          {canLeaveWallet && !isWalletOwner ? (
+            <ConfirmDialog
+              confirmText="Rời nhóm"
+              description="Bạn sẽ không còn thấy ví này trong danh sách và không thể ghi chi tiêu vào ví nữa."
+              destructive
+              onConfirm={() => handleLeaveWallet()}
+              title="Rời khỏi nhóm này?"
+              trigger={
+                <Button
+                  disabled={leaveWalletState.isLoading}
+                  type="button"
+                  variant="outline"
+                >
+                  <LogOut size={16} />
+                  {leaveWalletState.isLoading ? "Đang rời..." : "Rời nhóm"}
+                </Button>
+              }
+            />
+          ) : null}
+
+          {canLeaveWallet && isWalletOwner && ownerTransferOptions.length > 0 ? (
+            <Button
+              disabled={leaveWalletState.isLoading}
+              onClick={() => setLeaveOwnerDialogOpen(true)}
+              type="button"
+              variant="outline"
+            >
+              <LogOut size={16} />
+              Rời nhóm
+            </Button>
+          ) : null}
+
+          {isWalletOwner ? (
+            <ConfirmDialog
+              confirmText="Xóa ví"
+              description="Ví sẽ được ẩn khỏi danh sách và không thể tiếp tục ghi chi tiêu. Các dữ liệu cũ vẫn được giữ trong hệ thống."
+              destructive
+              onConfirm={handleDeleteWallet}
+              title="Xóa ví này?"
+              trigger={
+                <Button
+                  disabled={deleteWalletState.isLoading}
+                  type="button"
+                  variant="destructive"
+                >
+                  <Trash2 size={16} />
+                  {deleteWalletState.isLoading ? "Đang xóa..." : "Xóa ví"}
+                </Button>
+              }
+            />
+          ) : null}
         </div>
       </div>
 
@@ -1375,6 +1458,52 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
           </CardBody>
         </Card>
       </div>
+
+      <Dialog
+        onOpenChange={(open) => {
+          setLeaveOwnerDialogOpen(open);
+
+          if (!open) {
+            setNewOwnerUserId("");
+          }
+        }}
+        open={leaveOwnerDialogOpen}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Chọn chủ ví mới</DialogTitle>
+            <DialogDescription>
+              Bạn đang là chủ ví. Hãy chọn một thành viên khác làm chủ ví trước khi rời nhóm.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <SelectField
+              label="Chủ ví mới"
+              onValueChange={setNewOwnerUserId}
+              options={ownerTransferOptions}
+              value={newOwnerUserId}
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                onClick={() => setLeaveOwnerDialogOpen(false)}
+                type="button"
+                variant="outline"
+              >
+                Hủy
+              </Button>
+              <Button
+                disabled={leaveWalletState.isLoading || !newOwnerUserId}
+                onClick={() => handleLeaveWallet(newOwnerUserId)}
+                type="button"
+                variant="destructive"
+              >
+                <LogOut size={16} />
+                {leaveWalletState.isLoading ? "Đang rời..." : "Rời nhóm"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog onOpenChange={handleInviteDialogOpenChange} open={inviteDialogOpen}>
         <DialogContent className="sm:max-w-md">
