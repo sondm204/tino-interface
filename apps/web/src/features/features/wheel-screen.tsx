@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Copy, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Wheel, WheelItem } from "spin-wheel";
 import { AppShell } from "@/src/components/layout/app-shell";
@@ -50,6 +50,37 @@ function createWheelOption(index: number): WheelOption {
     label: "",
   };
 }
+
+function cubicBezier(x1: number, y1: number, x2: number, y2: number) {
+  const sampleCurve = (a: number, b: number, progress: number) =>
+    3 * a * (1 - progress) ** 2 * progress +
+    3 * b * (1 - progress) * progress ** 2 +
+    progress ** 3;
+
+  const sampleCurveDerivative = (a: number, b: number, progress: number) =>
+    3 * a * (1 - progress) ** 2 +
+    6 * (b - a) * (1 - progress) * progress +
+    3 * (1 - b) * progress ** 2;
+
+  return (progress: number) => {
+    let estimate = progress;
+
+    for (let iteration = 0; iteration < 5; iteration += 1) {
+      const xEstimate = sampleCurve(x1, x2, estimate) - progress;
+      const derivative = sampleCurveDerivative(x1, x2, estimate);
+
+      if (Math.abs(derivative) < 0.001) {
+        break;
+      }
+
+      estimate -= xEstimate / derivative;
+    }
+
+    return sampleCurve(y1, y2, Math.min(Math.max(estimate, 0), 1));
+  };
+}
+
+const wheelSpinEasing = cubicBezier(0.12, 0, 0.08, 1);
 
 export function WheelScreen() {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -149,6 +180,22 @@ export function WheelScreen() {
     setOptions((current) => [...current, createWheelOption(current.length + 1)]);
   }
 
+  function resetOptions() {
+    setOptions([createWheelOption(1)]);
+    setWinner(null);
+    setResultOpen(false);
+  }
+
+  function duplicateOptions() {
+    setOptions((current) => [
+      ...current,
+      ...current.map((option, index) => ({
+        id: `${Date.now()}-${current.length + index + 1}`,
+        label: option.label,
+      })),
+    ]);
+  }
+
   function removeOption(id: string) {
     setOptions((current) => current.filter((option) => option.id !== id));
   }
@@ -173,9 +220,16 @@ export function WheelScreen() {
     setWinner(null);
     setResultOpen(false);
     setSpinning(true);
-    const duration = 4500 + Math.random() * 1500;
-    const revolutions = 5 + Math.floor(Math.random() * 4);
-    wheelRef.current.spinToItem(winnerIndex, duration, false, revolutions, 1);
+    const duration = 3800 + Math.random() * 2400;
+    const revolutions = 4 + Math.floor(Math.random() * 5);
+    wheelRef.current.spinToItem(
+      winnerIndex,
+      duration,
+      false,
+      revolutions,
+      1,
+      wheelSpinEasing
+    );
   }
 
   return (
@@ -240,10 +294,35 @@ export function WheelScreen() {
           <Card>
             <CardHeader
               action={
-                <Button onClick={addOption} size="sm" type="button" variant="outline">
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Button
+                    onClick={resetOptions}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <RotateCcw size={15} />
+                    Reset
+                  </Button>
+                  <Button
+                    onClick={duplicateOptions}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <Copy size={15} />
+                    Nhân đôi
+                  </Button>
+                  <Button
+                    onClick={addOption}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
                   <Plus size={15} />
                   Thêm
-                </Button>
+                  </Button>
+                </div>
               }
               description="Cần ít nhất hai lựa chọn để quay."
               title="Lựa chọn"
@@ -263,7 +342,7 @@ export function WheelScreen() {
                   <Button
                     aria-label="Xóa lựa chọn"
                     className="mt-6"
-                    disabled={options.length <= 2}
+                    disabled={options.length <= 1}
                     onClick={() => removeOption(option.id)}
                     size="icon"
                     type="button"
