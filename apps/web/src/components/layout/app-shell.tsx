@@ -6,6 +6,7 @@ import {
   Bell,
   CheckCheck,
   CircleHelp,
+  LayoutList,
   LogOut,
   MoreHorizontal,
   ReceiptText,
@@ -72,7 +73,7 @@ const mainNavItems = [
   {
     href: "/features",
     label: "Chức năng thêm",
-    icon: MoreHorizontal,
+    icon: LayoutList,
     activePath: "/features",
   },
 ];
@@ -191,8 +192,12 @@ export function AppShell({
         >
           <SidebarHeader className="gap-3 p-4 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-2">
             <div className="flex items-center gap-3 rounded-lg px-2 py-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-              <div className="flex size-9 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                <WalletCards size={18} />
+              <div className="flex size-9 items-center justify-center overflow-hidden rounded-lg">
+                <img
+                  alt="Tino Expense"
+                  className="size-full object-contain"
+                  src="/images/tino-icon.png"
+                />
               </div>
               <div className="min-w-0 group-data-[collapsible=icon]:hidden">
                 <p className="truncate text-sm font-semibold">Tino Expense</p>

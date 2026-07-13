@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Calculator, RotateCcw } from "lucide-react";
+import { ArrowRight, Calculator, LifeBuoy } from "lucide-react";
 import { AppShell } from "@/src/components/layout/app-shell";
 import { Card } from "@/src/components/ui/card";
 
@@ -17,7 +17,7 @@ const featureCards = [
     description:
       "Nhập các lựa chọn rồi quay vòng để chọn ngẫu nhiên một phương án.",
     href: "/features/wheel",
-    icon: RotateCcw,
+    icon: LifeBuoy,
     title: "Vòng quay lựa chọn",
   },
 ];

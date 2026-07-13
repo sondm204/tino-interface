@@ -1,5 +1,5 @@
 ﻿import { useState } from "react";
-import { View } from "react-native";
+import { Image, View } from "react-native";
 import { Link, router } from "expo-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,8 @@ import {
   useLoginMutation,
   useRegisterMutation,
 } from "@/store/tino-api-slice";
+
+const tinoIcon = require("../../../assets/tino-icon.png");
 
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const { alert } = useAlertDialog();
@@ -67,8 +69,14 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   return (
     <View className="flex-1 justify-center bg-slate-50 p-4 dark:bg-slate-950">
       <Card className="gap-3">
-        <View className="mb-2 gap-1">
-          <Text variant="headline">Tino Expense</Text>
+        <View className="mb-2 items-center gap-2">
+          <Image
+            accessibilityIgnoresInvertColors
+            className="size-16"
+            resizeMode="contain"
+            source={tinoIcon}
+          />
+          <Text className="text-center" variant="headline">Tino Expense</Text>
           <Text variant="muted">
             {isRegister
               ? "Tạo tài khoản để bắt đầu tracking chi tiêu."

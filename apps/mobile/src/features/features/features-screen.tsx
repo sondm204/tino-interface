@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { Pressable, View } from "react-native";
-import { ArrowRight, Calculator, RotateCcw } from "lucide-react-native";
+import { ArrowRight, Calculator, LifeBuoy } from "lucide-react-native";
 import { Screen } from "@/components/screen";
 import { Card } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
@@ -15,7 +15,7 @@ const featureCards = [
   {
     description: "Nhập các lựa chọn rồi quay vòng để chọn ngẫu nhiên.",
     href: "/features/wheel",
-    icon: RotateCcw,
+    icon: LifeBuoy,
     title: "Vòng quay lựa chọn",
   },
 ];
