@@ -69,8 +69,13 @@ const iconModeButtonClass =
 
 const mainNavItems = [
   { href: "/wallets", label: "Ví chi tiêu", icon: Users, activePath: "/wallets" },
+  {
+    href: "/features",
+    label: "Chức năng thêm",
+    icon: MoreHorizontal,
+    activePath: "/features",
+  },
 ];
-
 const supportNavItems = [
   { label: "Cài đặt", icon: Settings },
   { label: "Trợ giúp", icon: CircleHelp },

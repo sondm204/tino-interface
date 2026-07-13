@@ -228,7 +228,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
   const saving = createExpenseState.isLoading;
   const inviteUserAlreadyMember = Boolean(
     inviteUser &&
-      walletMembers?.some((member) => member.user_id === inviteUser.id)
+    walletMembers?.some((member) => member.user_id === inviteUser.id)
   );
   const inviteLookupError = inviteUserError?.message ?? null;
   const currentMember = walletMembers?.find(
@@ -546,9 +546,9 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
     } catch (err) {
       const message =
         typeof err === "object" &&
-        err !== null &&
-        "message" in err &&
-        typeof err.message === "string"
+          err !== null &&
+          "message" in err &&
+          typeof err.message === "string"
           ? err.message
           : "Không thể rời nhóm";
       setFormError(message);
@@ -580,9 +580,9 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
     } catch (err) {
       const message =
         typeof err === "object" &&
-        err !== null &&
-        "message" in err &&
-        typeof err.message === "string"
+          err !== null &&
+          "message" in err &&
+          typeof err.message === "string"
           ? err.message
           : "Không thể mời thành viên.";
       toast.error(message);
@@ -869,12 +869,18 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
     >
       <div className="mb-4 flex justify-between">
         <Link
-          className="text-sm flex items-center gap-2 font-medium text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50"
+          className="flex items-center gap-2"
           href="/wallets"
         >
-          <ArrowLeft size={16} />
-          Quay lại danh sách ví
+          <Button
+            type="button"
+            variant="outline"
+          >
+            <ArrowLeft size={16} />
+            Quay lại
+          </Button>
         </Link>
+
         <div className="flex justify-end gap-2">
           {canLeaveWallet && !isWalletOwner ? (
             <ConfirmDialog
