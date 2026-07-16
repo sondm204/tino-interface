@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "460352673934",
+    "project_id": "tino-afb97",
+    "storage_bucket": "tino-afb97.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:460352673934:android:7cf032b162e0b4e6b151df",
+        "android_client_info": {
+          "package_name": "com.sondm.tinoexpense"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBvU3ySJ8pF5xFoGMv95MzbwrsnulL_U_s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -9,6 +9,7 @@
     "scheme": "tino-expense",
     "plugins": [
       "expo-router",
+      "expo-notifications",
       "expo-image-picker",
       "@react-native-community/datetimepicker",
       [
@@ -31,7 +32,8 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "package": "com.sondm.tinoexpense"
     },

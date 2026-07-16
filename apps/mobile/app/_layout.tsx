@@ -6,12 +6,14 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AlertDialogProvider } from "@/components/ui/alert-dialog";
 import { ThemeProvider } from "@/components/theme-provider";
 import { StoreProvider } from "@/store/store-provider";
+import { PushNotificationRegistrar } from "@/components/push-notification-registrar";
 
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StoreProvider>
+          <PushNotificationRegistrar />
           <ThemeProvider>
             <AlertDialogProvider>
               <Stack screenOptions={{ headerShown: false }}>

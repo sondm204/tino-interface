@@ -19,6 +19,7 @@ import {
 import type { ReactNode } from "react";
 import { useEffect, useMemo } from "react";
 import { ThemeToggle } from "@/src/components/layout/theme-toggle";
+import { PushNotificationRegistrar } from "@/src/components/layout/push-notification-registrar";
 import { Button } from "@/src/components/ui/button";
 import { ConfirmDialog } from "@/src/components/ui/confirm-dialog";
 import {
@@ -27,6 +28,7 @@ import {
   getRefreshToken,
   setStoredCurrentUser,
 } from "@/src/lib/api-client";
+import { unregisterCurrentWebPushDevice } from "@/src/lib/push-notifications";
 import {
   clearCurrentUser,
   setCurrentUser,
@@ -152,7 +154,10 @@ export function AppShell({
 
   async function handleLogout() {
     try {
-      await logout().unwrap();
+      await Promise.allSettled([
+        unregisterCurrentWebPushDevice(),
+        logout().unwrap(),
+      ]);
     } catch {
       // Local session is cleared even if the backend token revoke fails.
     }
@@ -184,6 +189,7 @@ export function AppShell({
 
   return (
     <TooltipProvider>
+      <PushNotificationRegistrar />
       <SidebarProvider>
         <Sidebar
           className="border-sidebar-border"

@@ -65,6 +65,14 @@ export type TelegramCode = {
   expires_at: string;
 };
 
+export type RegisterPushDevicePayload = {
+  device_id: string;
+  platform: "ios" | "android" | "web";
+  fcm_token: string;
+  app_version?: string | null;
+  device_name?: string | null;
+};
+
 export const tinoApi = {
   register: (payload: RegisterPayload) =>
     apiRequest<AuthPayload>("/auth/register", {
@@ -240,5 +248,15 @@ export const tinoApi = {
     apiRequest<{ updated: number; read_at: string }>(
       "/api/notifications/read-all",
       { method: "PATCH" }
+    ),
+  registerPushDevice: (payload: RegisterPushDevicePayload) =>
+    apiRequest("/api/push-devices", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  unregisterPushDevice: (deviceId: string) =>
+    apiRequest<{ revoked: number }>(
+      `/api/push-devices/${encodeURIComponent(deviceId)}`,
+      { method: "DELETE" }
     ),
 };

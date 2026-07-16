@@ -162,8 +162,9 @@ Expense flow:
 ### Notifications
 
 Notifications are persisted by `tino-service` and displayed by web and mobile
-clients. Phase 1 uses in-app notifications only; push notifications, email, and
-Telegram delivery are outside the current notification scope.
+clients. Mobile clients can also register Firebase Cloud Messaging device tokens
+after login so the backend can deliver push notifications to all active devices
+for a user.
 
 Current behavior:
 

@@ -3,6 +3,8 @@ packages:
   - "packages/*"
 pmOnFail: ignore
 allowBuilds:
+  '@firebase/util': true
   canvas: true
+  protobufjs: true
   sharp: true
   unrs-resolver: true

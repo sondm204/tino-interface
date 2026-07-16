@@ -20,6 +20,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Text } from "@/components/ui/text";
 import { Screen } from "@/components/screen";
 import { clearAuthToken } from "@/lib/api-client";
+import { unregisterCurrentPushDevice } from "@/lib/push-notifications";
 import { clearCurrentUser } from "@/store/auth-slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
@@ -51,7 +52,7 @@ export function SettingsScreen() {
     setLogoutDialogVisible(false);
     try {
       await Promise.race([
-        logout(),
+        Promise.allSettled([unregisterCurrentPushDevice(), logout()]),
         new Promise((resolve) => setTimeout(resolve, 1500)),
       ]);
     } finally {
