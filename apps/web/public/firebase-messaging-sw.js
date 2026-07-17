@@ -23,9 +23,9 @@ if (
   const messaging = firebase.messaging();
 
   messaging.onBackgroundMessage((payload) => {
-    const title = payload.notification?.title || "Tino Expense";
+    const title = payload.notification?.title || payload.data?.title || "Tino Expense";
     const options = {
-      body: payload.notification?.body || payload.data?.message || "",
+      body: payload.notification?.body || payload.data?.body || "",
       data: payload.data || {},
       icon: "/images/tino-icon.png",
       badge: "/images/tino-icon.png",

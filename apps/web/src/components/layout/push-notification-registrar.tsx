@@ -10,21 +10,11 @@ export function PushNotificationRegistrar() {
   const userId = useAppSelector((state) => state.auth.user?.id);
 
   useEffect(() => {
-    console.info("Web push registrar state", {
-      authHydrated,
-      hasUser: Boolean(userId),
-    });
-
     if (!authHydrated || !userId) {
       return;
     }
 
     registerWebPushDevice(dispatch)
-      .then((result) => {
-        if (!result.registered) {
-          console.warn("Web push device was not registered", result);
-        }
-      })
       .catch((error) => {
         console.warn("Could not register web push device", error);
       });

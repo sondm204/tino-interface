@@ -16,7 +16,6 @@ let messagingPromise: Promise<Messaging | null> | null = null;
 let foregroundListenerReady = false;
 
 type WebPushRegisterResult = {
-  reason?: string;
   registered: boolean;
 };
 
@@ -37,12 +36,6 @@ function getFirebaseConfig(): FirebaseOptions | null {
     !config.messagingSenderId ||
     !config.appId
   ) {
-    console.warn("Web push skipped: Firebase web config is missing", {
-      hasApiKey: Boolean(config.apiKey),
-      hasProjectId: Boolean(config.projectId),
-      hasMessagingSenderId: Boolean(config.messagingSenderId),
-      hasAppId: Boolean(config.appId),
-    });
     return null;
   }
 
@@ -51,6 +44,17 @@ function getFirebaseConfig(): FirebaseOptions | null {
 
 function getVapidKey() {
   return process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_VAPID_KEY || "";
+}
+
+function withTimeout<T>(promise: Promise<T>, label: string, timeoutMs = 10_000) {
+  return Promise.race([
+    promise,
+    new Promise<T>((_resolve, reject) => {
+      window.setTimeout(() => {
+        reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+    }),
+  ]);
 }
 
 function getPushDeviceId() {
@@ -96,18 +100,11 @@ async function getWebMessaging() {
       return null;
     }
 
-    if (!("Notification" in window)) {
-      console.warn("Web push skipped: Notification API is not available");
+    if (!("Notification" in window) || !("serviceWorker" in navigator)) {
       return null;
     }
 
-    if (!("serviceWorker" in navigator)) {
-      console.warn("Web push skipped: Service Worker API is not available");
-      return null;
-    }
-
-    if (!(await isSupported())) {
-      console.warn("Web push skipped: Firebase Messaging is not supported");
+    if (!(await withTimeout(isSupported(), "Firebase Messaging support check"))) {
       return null;
     }
 
@@ -117,8 +114,7 @@ async function getWebMessaging() {
       return null;
     }
 
-    const app = initializeApp(config);
-    return getMessaging(app);
+    return getMessaging(initializeApp(config));
   })();
 
   return messagingPromise;
@@ -129,19 +125,9 @@ async function ensurePermission() {
     return true;
   }
 
-  if (Notification.permission === "denied") {
-    console.warn("Web push skipped: notification permission was denied");
-    return false;
-  }
+  if (Notification.permission === "denied") return false;
 
   const permission = await Notification.requestPermission();
-
-  if (permission !== "granted") {
-    console.warn("Web push skipped: notification permission was not granted", {
-      permission,
-    });
-  }
-
   return permission === "granted";
 }
 
@@ -161,8 +147,8 @@ function subscribeForegroundMessages(
       return;
     }
 
-    const title = payload.notification?.title || "Tino Expense";
-    const body = payload.notification?.body || payload.data?.message || "";
+    const title = payload.notification?.title || payload.data?.title || "Tino Expense";
+    const body = payload.notification?.body || payload.data?.body || "";
     const walletId = payload.data?.wallet_id;
     const notification = new Notification(title, {
       body,
@@ -185,15 +171,11 @@ export async function registerWebPushDevice(
   const vapidKey = getVapidKey();
 
   if (!messaging || !config || !vapidKey) {
-    if (!vapidKey) {
-      console.warn("Web push skipped: VAPID key is missing");
-    }
-
-    return { reason: "missing_config_or_vapid_key", registered: false };
+    return { registered: false };
   }
 
   if (!(await ensurePermission())) {
-    return { reason: "permission_not_granted", registered: false };
+    return { registered: false };
   }
 
   const existingRegistration =
@@ -206,14 +188,16 @@ export async function registerWebPushDevice(
   const serviceWorkerRegistration = await navigator.serviceWorker.register(
     buildServiceWorkerUrl(config)
   );
-  const fcmToken = await getToken(messaging, {
-    vapidKey,
-    serviceWorkerRegistration,
-  });
+  const fcmToken = await withTimeout(
+    getToken(messaging, {
+      vapidKey,
+      serviceWorkerRegistration,
+    }),
+    "Firebase getToken"
+  );
 
   if (!fcmToken) {
-    console.warn("Web push skipped: Firebase returned an empty FCM token");
-    return { reason: "empty_fcm_token", registered: false };
+    return { registered: false };
   }
 
   await tinoApi.registerPushDevice({
@@ -224,10 +208,6 @@ export async function registerWebPushDevice(
     device_name: navigator.userAgent,
   });
   subscribeForegroundMessages(messaging, dispatch);
-  console.info("Web push device registered", {
-    deviceId: getPushDeviceId(),
-    origin: window.location.origin,
-  });
 
   return { registered: true };
 }
