@@ -15,6 +15,11 @@ const PUSH_DEVICE_ID_KEY = "tino-web-push-device-id";
 let messagingPromise: Promise<Messaging | null> | null = null;
 let foregroundListenerReady = false;
 
+type WebPushRegisterResult = {
+  reason?: string;
+  registered: boolean;
+};
+
 function getFirebaseConfig(): FirebaseOptions | null {
   const config = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -32,6 +37,12 @@ function getFirebaseConfig(): FirebaseOptions | null {
     !config.messagingSenderId ||
     !config.appId
   ) {
+    console.warn("Web push skipped: Firebase web config is missing", {
+      hasApiKey: Boolean(config.apiKey),
+      hasProjectId: Boolean(config.projectId),
+      hasMessagingSenderId: Boolean(config.messagingSenderId),
+      hasAppId: Boolean(config.appId),
+    });
     return null;
   }
 
@@ -81,12 +92,22 @@ async function getWebMessaging() {
   }
 
   messagingPromise = (async () => {
-    if (
-      typeof window === "undefined" ||
-      !("Notification" in window) ||
-      !("serviceWorker" in navigator) ||
-      !(await isSupported())
-    ) {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    if (!("Notification" in window)) {
+      console.warn("Web push skipped: Notification API is not available");
+      return null;
+    }
+
+    if (!("serviceWorker" in navigator)) {
+      console.warn("Web push skipped: Service Worker API is not available");
+      return null;
+    }
+
+    if (!(await isSupported())) {
+      console.warn("Web push skipped: Firebase Messaging is not supported");
       return null;
     }
 
@@ -109,10 +130,19 @@ async function ensurePermission() {
   }
 
   if (Notification.permission === "denied") {
+    console.warn("Web push skipped: notification permission was denied");
     return false;
   }
 
-  return (await Notification.requestPermission()) === "granted";
+  const permission = await Notification.requestPermission();
+
+  if (permission !== "granted") {
+    console.warn("Web push skipped: notification permission was not granted", {
+      permission,
+    });
+  }
+
+  return permission === "granted";
 }
 
 function subscribeForegroundMessages(
@@ -147,17 +177,23 @@ function subscribeForegroundMessages(
   });
 }
 
-export async function registerWebPushDevice(dispatch: AppDispatch) {
+export async function registerWebPushDevice(
+  dispatch: AppDispatch
+): Promise<WebPushRegisterResult> {
   const messaging = await getWebMessaging();
   const config = getFirebaseConfig();
   const vapidKey = getVapidKey();
 
   if (!messaging || !config || !vapidKey) {
-    return { registered: false };
+    if (!vapidKey) {
+      console.warn("Web push skipped: VAPID key is missing");
+    }
+
+    return { reason: "missing_config_or_vapid_key", registered: false };
   }
 
   if (!(await ensurePermission())) {
-    return { registered: false };
+    return { reason: "permission_not_granted", registered: false };
   }
 
   const existingRegistration =
@@ -176,7 +212,8 @@ export async function registerWebPushDevice(dispatch: AppDispatch) {
   });
 
   if (!fcmToken) {
-    return { registered: false };
+    console.warn("Web push skipped: Firebase returned an empty FCM token");
+    return { reason: "empty_fcm_token", registered: false };
   }
 
   await tinoApi.registerPushDevice({
@@ -187,6 +224,10 @@ export async function registerWebPushDevice(dispatch: AppDispatch) {
     device_name: navigator.userAgent,
   });
   subscribeForegroundMessages(messaging, dispatch);
+  console.info("Web push device registered", {
+    deviceId: getPushDeviceId(),
+    origin: window.location.origin,
+  });
 
   return { registered: true };
 }
