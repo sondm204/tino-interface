@@ -16,11 +16,10 @@ import { router, useLocalSearchParams } from "expo-router";
 import {
   ArrowLeft,
   CalendarDays,
-  ChevronDown,
-  ChevronUp,
   Copy,
   ImagePlus,
   Plus,
+  Scale,
   Send,
   Trash2,
   X,
@@ -126,7 +125,8 @@ export function WalletDetailScreen() {
   const monthOptions = useMemo(() => getMonthOptions(), []);
   const [month, setMonth] = useState(getCurrentMonth());
   const [createDialogVisible, setCreateDialogVisible] = useState(false);
-  const [summaryExpanded, setSummaryExpanded] = useState(false);
+  const [summaryDialogVisible, setSummaryDialogVisible] = useState(false);
+  const [telegramDialogVisible, setTelegramDialogVisible] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [previewAttachment, setPreviewAttachment] =
     useState<Attachment | null>(null);
@@ -579,10 +579,6 @@ export function WalletDetailScreen() {
     ]);
   }
 
-  function toggleSummary() {
-    setSummaryExpanded((expanded) => !expanded);
-  }
-
   async function handleCreateTelegramWalletCode() {
     if (!walletId) return;
 
@@ -650,165 +646,38 @@ export function WalletDetailScreen() {
 
         <View className="gap-2">
           <Card className="gap-2">
-            <Text variant="title">{summaryQuery.data?.wallet.name || "Chi tiết ví"}</Text>
-            <Text variant="muted">Tổng chi tháng đã chọn</Text>
-            <Text className="text-lg font-bold">
-              {formatCurrency(summaryQuery.data?.total_amount, "VND")}
-            </Text>
-          </Card>
-          <Card className="gap-4">
-              <View className="flex-row items-center justify-between gap-3">
-                <Text variant="title">Chi tiêu và quyết toán</Text>
-                <Pressable
-                  accessibilityLabel={
-                    summaryExpanded
-                      ? "Ẩn chi tiêu và quyết toán"
-                      : "Hiện chi tiêu và quyết toán"
-                  }
-                  accessibilityRole="button"
-                  className="size-9 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800"
-                  onPress={toggleSummary}
-                >
-                  {summaryExpanded ? (
-                    <ChevronUp color={isDark ? "#cbd5e1" : "#475569"} size={19} />
-                  ) : (
-                    <ChevronDown color={isDark ? "#cbd5e1" : "#475569"} size={19} />
-                  )}
-                </Pressable>
-              </View>
-
-              {summaryExpanded ? (
-                <>
-                <View className="gap-2">
-                  <Text className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-                    Chi tiêu theo thành viên
-                  </Text>
-              {(summaryQuery.data?.member_balances || []).map((item) => (
-                <View
-                  className="flex-row items-center gap-3 border-t border-slate-100 pt-2 dark:border-slate-800"
-                  key={item.user_id}
-                >
-                  <Text className="flex-1 text-sm font-semibold" numberOfLines={1}>
-                    {memberNameById.get(item.user_id) || item.user_id}
-                  </Text>
-                  <View className="items-end">
-                    <Text className="text-xs text-slate-500 dark:text-slate-400">Đã trả</Text>
-                    <Text className="text-sm font-semibold">
-                      {formatCurrency(item.paid, summaryQuery.data?.currency || "VND")}
-                    </Text>
-                  </View>
-                  <View className="items-end">
-                    <Text className="text-xs text-slate-500 dark:text-slate-400">Phần chi</Text>
-                    <Text className="text-sm font-semibold">
-                      {formatCurrency(item.share, summaryQuery.data?.currency || "VND")}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-                </View>
-
-                <View className="gap-2 border-t border-slate-200 pt-3 dark:border-slate-800">
-                  <Text className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-                    Quyết toán
-                  </Text>
-                  {summaryQuery.data?.settlements.length ? (
-                    summaryQuery.data.settlements.map((settlement) => (
-                      <View
-                        className="flex-row items-center gap-2"
-                        key={`${settlement.from_user_id}-${settlement.to_user_id}`}
-                      >
-                        <Text className="flex-1 text-sm" numberOfLines={1}>
-                          <Text className="font-semibold">
-                            {memberNameById.get(settlement.from_user_id) ||
-                              settlement.from_user_id}
-                          </Text>
-                          {" trả "}
-                          <Text className="font-semibold">
-                            {memberNameById.get(settlement.to_user_id) ||
-                              settlement.to_user_id}
-                          </Text>
-                        </Text>
-                        <Text className="text-sm font-bold">
-                          {formatCurrency(settlement.amount, settlement.currency)}
-                        </Text>
-                      </View>
-                    ))
-                  ) : (
-                    <Text variant="muted">Tháng này không cần quyết toán.</Text>
-                  )}
-                </View>
-                </>
-              ) : null}
-          </Card>
-
-          {summaryQuery.data?.wallet.owner_id === currentUser?.id ? (
-            <Card className="gap-3">
-              <View className="flex-row items-center gap-2">
-                <Send color="#2563eb" size={18} />
-                <Text variant="title">Kết nối Telegram</Text>
-              </View>
-              {telegramCode ? (
-                <View className="gap-1 rounded-xl bg-slate-50 p-3 dark:bg-slate-950">
-                  <Text variant="small">Gửi lệnh này trong Telegram group</Text>
-                  <Text className="font-mono text-lg font-bold tracking-widest">
-                    /connect {telegramCode.code}
-                  </Text>
-                  <Text variant="small">
-                    Hết hạn:{" "}
-                    {new Intl.DateTimeFormat("vi-VN", {
-                      dateStyle: "short",
-                      timeStyle: "short",
-                    }).format(new Date(telegramCode.expires_at))}
-                  </Text>
-                </View>
-              ) : (
-                <Text variant="muted">
-                  Tạo mã một lần để kết nối ví này với Telegram group.
+            <View className="flex-row items-start justify-between gap-3">
+              <View className="min-w-0 flex-1 gap-1">
+                <Text variant="title">
+                  {summaryQuery.data?.wallet.name || "Chi tiết ví"}
                 </Text>
-              )}
-              <View className="flex-row gap-2">
-                {telegramCode ? (
-                  <Button
-                    className="flex-1"
-                    onPress={() => void handleCopyTelegramWalletCode()}
-                    variant="outline"
-                  >
-                    <Copy
-                      color={isDark ? "#f8fafc" : "#0f172a"}
-                      size={16}
-                    />
-                    Sao chép
-                  </Button>
-                ) : null}
-                <Button
-                  className="flex-1"
-                  loading={telegramCodeState.isLoading}
-                  onPress={() => void handleCreateTelegramWalletCode()}
-                >
-                  <Send color="#fff" size={16} />
-                  {telegramCode ? "Tạo mã mới" : "Tạo mã"}
-                </Button>
+                <Text variant="muted">Tổng chi tháng đã chọn</Text>
+                <Text className="text-lg font-bold">
+                  {formatCurrency(summaryQuery.data?.total_amount, "VND")}
+                </Text>
               </View>
-              {summaryQuery.data?.wallet.type === "shared" ? (
-                <View className="gap-2 rounded-xl border border-dashed border-slate-300 p-3 dark:border-slate-700">
-                  <Text className="font-semibold">Mời thành viên</Text>
-                  <Input
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                    onChangeText={setInviteEmail}
-                    placeholder="name@example.com"
-                    value={inviteEmail}
-                  />
-                  <Button
-                    loading={inviteWalletMemberState.isLoading}
-                    onPress={handleInviteWalletMember}
+              <View className="flex-row gap-2">
+                <Pressable
+                  accessibilityLabel="Chi tiêu và quyết toán"
+                  accessibilityRole="button"
+                  className="size-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800"
+                  onPress={() => setSummaryDialogVisible(true)}
+                >
+                  <Scale color={isDark ? "#cbd5e1" : "#475569"} size={19} />
+                </Pressable>
+                {summaryQuery.data?.wallet.owner_id === currentUser?.id ? (
+                  <Pressable
+                    accessibilityLabel="Kết nối Telegram"
+                    accessibilityRole="button"
+                    className="size-10 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-950"
+                    onPress={() => setTelegramDialogVisible(true)}
                   >
-                    <Plus color="#fff" size={16} />
-                    Mời vào ví
-                  </Button>
-                </View>
-              ) : null}            </Card>
-          ) : null}
+                    <Send color="#2563eb" size={19} />
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
+          </Card>
         </View>
 
         <ScrollView
@@ -891,6 +760,142 @@ export function WalletDetailScreen() {
           )}
         />
       </Screen>
+
+      <Dialog
+        open={summaryDialogVisible}
+        onOpenChange={setSummaryDialogVisible}
+        title="Chi tiêu và quyết toán"
+      >
+        <View className="gap-2">
+          <Text className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+            Chi tiêu theo thành viên
+          </Text>
+          {(summaryQuery.data?.member_balances || []).map((item) => (
+            <View
+              className="flex-row items-center gap-3 border-t border-slate-100 pt-2 dark:border-slate-800"
+              key={item.user_id}
+            >
+              <Text className="flex-1 text-sm font-semibold" numberOfLines={1}>
+                {memberNameById.get(item.user_id) || item.user_id}
+              </Text>
+              <View className="items-end">
+                <Text className="text-xs text-slate-500 dark:text-slate-400">
+                  Đã trả
+                </Text>
+                <Text className="text-sm font-semibold">
+                  {formatCurrency(item.paid, summaryQuery.data?.currency || "VND")}
+                </Text>
+              </View>
+              <View className="items-end">
+                <Text className="text-xs text-slate-500 dark:text-slate-400">
+                  Phần chi
+                </Text>
+                <Text className="text-sm font-semibold">
+                  {formatCurrency(item.share, summaryQuery.data?.currency || "VND")}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        <View className="gap-2 border-t border-slate-200 pt-3 dark:border-slate-800">
+          <Text className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+            Quyết toán
+          </Text>
+          {summaryQuery.data?.settlements.length ? (
+            summaryQuery.data.settlements.map((settlement) => (
+              <View
+                className="flex-row items-center gap-2"
+                key={`${settlement.from_user_id}-${settlement.to_user_id}`}
+              >
+                <Text className="flex-1 text-sm" numberOfLines={1}>
+                  <Text className="font-semibold">
+                    {memberNameById.get(settlement.from_user_id) ||
+                      settlement.from_user_id}
+                  </Text>
+                  {" trả "}
+                  <Text className="font-semibold">
+                    {memberNameById.get(settlement.to_user_id) ||
+                      settlement.to_user_id}
+                  </Text>
+                </Text>
+                <Text className="text-sm font-bold">
+                  {formatCurrency(settlement.amount, settlement.currency)}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <Text variant="muted">Tháng này không cần quyết toán.</Text>
+          )}
+        </View>
+      </Dialog>
+
+      <Dialog
+        open={telegramDialogVisible}
+        onOpenChange={setTelegramDialogVisible}
+        title="Kết nối Telegram"
+      >
+        {telegramCode ? (
+          <View className="gap-1 rounded-xl bg-slate-50 p-3 dark:bg-slate-950">
+            <Text variant="small">Gửi lệnh này trong Telegram group</Text>
+            <Text className="font-mono text-lg font-bold tracking-widest">
+              /connect {telegramCode.code}
+            </Text>
+            <Text variant="small">
+              Hết hạn:{" "}
+              {new Intl.DateTimeFormat("vi-VN", {
+                dateStyle: "short",
+                timeStyle: "short",
+              }).format(new Date(telegramCode.expires_at))}
+            </Text>
+          </View>
+        ) : (
+          <Text variant="muted">
+            Tạo mã một lần để kết nối ví này với Telegram group.
+          </Text>
+        )}
+
+        <View className="flex-row gap-2">
+          {telegramCode ? (
+            <Button
+              className="flex-1"
+              onPress={() => void handleCopyTelegramWalletCode()}
+              variant="outline"
+            >
+              <Copy color={isDark ? "#f8fafc" : "#0f172a"} size={16} />
+              Sao chép
+            </Button>
+          ) : null}
+          <Button
+            className="flex-1"
+            loading={telegramCodeState.isLoading}
+            onPress={() => void handleCreateTelegramWalletCode()}
+          >
+            <Send color="#fff" size={16} />
+            {telegramCode ? "Tạo mã mới" : "Tạo mã"}
+          </Button>
+        </View>
+
+        {summaryQuery.data?.wallet.type === "shared" ? (
+          <View className="gap-2 rounded-xl border border-dashed border-slate-300 p-3 dark:border-slate-700">
+            <Text className="font-semibold">Mời thành viên</Text>
+            <Input
+              autoCapitalize="none"
+              keyboardType="email-address"
+              onChangeText={setInviteEmail}
+              placeholder="name@example.com"
+              value={inviteEmail}
+            />
+            <Button
+              loading={inviteWalletMemberState.isLoading}
+              onPress={handleInviteWalletMember}
+            >
+              <Plus color="#fff" size={16} />
+              Mời vào ví
+            </Button>
+          </View>
+        ) : null}
+      </Dialog>
 
       <Dialog
         open={createDialogVisible}

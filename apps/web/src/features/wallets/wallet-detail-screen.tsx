@@ -1098,7 +1098,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
                       <Fragment key={group.date}>
                         <TableRow className="hover:bg-transparent">
                           <TableCell
-                            className="bg-zinc-50 py-2 text-xs font-semibold text-zinc-600 dark:bg-zinc-900/60 dark:text-zinc-300"
+                            className="bg-zinc-50 py-2 text-xs font-semibold text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-300"
                             colSpan={wallet?.type === "shared" ? 6 : 5}
                           >
                             {formatDate(group.date)}

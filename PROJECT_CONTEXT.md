@@ -613,6 +613,15 @@ These decisions are still open and should be confirmed before implementing the r
 
 Before making meaningful product or architecture changes, read this file first.
 
+### Encoding Safety
+
+This project contains Vietnamese UI copy. When reading or editing files with
+Vietnamese text, avoid PowerShell text pipelines such as `Get-Content`,
+`Set-Content`, or `[IO.File]::WriteAllLines` because they can corrupt UTF-8 into
+mojibake in this environment. Prefer `apply_patch` for small edits, or Node.js
+`fs.readFileSync(path, "utf8")` and `fs.writeFileSync(path, content, "utf8")`
+for scripted edits.
+
 When adding a feature:
 
 - Preserve the current product scope unless the user explicitly expands it.
