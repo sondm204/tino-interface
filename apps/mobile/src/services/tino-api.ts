@@ -78,6 +78,10 @@ export type RegisterPushDevicePayload = {
   device_name?: string | null;
 };
 
+export type RecentExpense = Expense & {
+  wallet_name: string;
+};
+
 export const tinoApi = {
   register: (payload: RegisterPayload) =>
     apiRequest<AuthPayload>("/auth/register", {
@@ -176,6 +180,8 @@ export const tinoApi = {
       `/api/wallets/${walletId}/expenses?${params.toString()}`
     );
   },
+  listRecentExpenses: (size = 3) =>
+    apiRequest<RecentExpense[]>(`/api/expenses/recent?size=${size}`),
   createExpense: (walletId: string, payload: CreateExpensePayload) =>
     apiRequest<Expense>(`/api/wallets/${walletId}/expenses`, {
       method: "POST",

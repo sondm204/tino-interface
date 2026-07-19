@@ -18,6 +18,7 @@ import {
   type CreateWalletPayload,
   type LoginPayload,
   type RegisterPayload,
+  type RecentExpense,
   type TelegramCode,
   type UpdateProfilePayload,
   type UploadAvatarFile,
@@ -150,6 +151,11 @@ export const tinoApiSlice = createApi({
         { type: "Expenses", id: walletId },
       ],
     }),
+    getRecentExpenses: builder.query<RecentExpense[], { size?: number } | void>({
+      queryFn: (args) =>
+        runApi(() => tinoApi.listRecentExpenses(args?.size ?? 3)),
+      providesTags: ["Expenses"],
+    }),
     getSummary: builder.query<WalletSummary, { walletId: string; month: string }>({
       queryFn: ({ walletId, month }) =>
         runApi(() => tinoApi.getSummary(walletId, month)),
@@ -263,6 +269,7 @@ export const {
   useGetNotificationsQuery,
   useGetUnreadNotificationCountQuery,
   useGetExpensesQuery,
+  useGetRecentExpensesQuery,
   useGetSummaryQuery,
   useGetWalletMembersQuery,
   useGetWalletsQuery,
