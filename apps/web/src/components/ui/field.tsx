@@ -1,13 +1,15 @@
 import type { InputHTMLAttributes, TextareaHTMLAttributes } from "react";
+import {
+  Combobox,
+  ComboboxCollection,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/src/lib/cn";
 
@@ -48,25 +50,41 @@ export function SelectField({
   return (
     <div className="space-y-1.5">
       <FieldLabel label={label} />
-      <Select
-        onValueChange={(nextValue) => {
+      <Combobox
+        items={options}
+        itemToStringLabel={(option) => option?.label ?? ""}
+        onValueChange={(option) => {
+          const nextValue = option?.value;
+
           if (nextValue) {
             onValueChange(nextValue);
           }
         }}
-        value={value}
+        value={selectedOption ?? null}
       >
-        <SelectTrigger className="h-10 w-full">
-          <SelectValue>{selectedOption?.label}</SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        <ComboboxInput
+          className="h-10 w-full"
+          placeholder={`Chọn ${label.toLowerCase()}`}
+          showClear={false}
+          value={selectedOption?.label ?? ""}
+        />
+        <ComboboxContent>
+          <ComboboxEmpty>Không có kết quả</ComboboxEmpty>
+          <ComboboxList>
+            <ComboboxCollection>
+              {(option) => (
+                <ComboboxItem
+                  className="py-2"
+                  key={option.value}
+                  value={option}
+                >
+                  {option.label}
+                </ComboboxItem>
+              )}
+            </ComboboxCollection>
+          </ComboboxList>
+        </ComboboxContent>
+      </Combobox>
     </div>
   );
 }
