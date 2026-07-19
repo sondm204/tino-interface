@@ -12,15 +12,15 @@ The product helps users record expenses across multiple spending contexts, then 
 
 Each wallet has its own members, expenses, monthly summary, and settlement logic.
 
-## Phase 1 Scope
+## Current Product Scope
 
-Phase 1 is a straightforward expense tracking product. The focus is to make expense entry, walleting, and monthly review reliable before adding advanced automation.
+Tino has moved beyond the initial Phase 1 baseline. The product now builds on the core expense, wallet, Telegram, notification, and attachment flows and can evolve into more advanced product behavior when requested.
 
-Phase 1 should support:
+The current product should support:
 
 - Manual account registration and login.
 - Viewing and updating the current user's display name, avatar, and password.
-- Email is the login identifier and cannot be changed in Phase 1.
+- Email is the login identifier and cannot be changed unless the product direction changes.
 - Creating and managing expense wallets.
 - Inviting or adding members to a wallet.
 - Adding expenses inside a wallet.
@@ -32,7 +32,7 @@ Phase 1 should support:
 - Creating equal-split expenses from Telegram group messages.
 - Receiving in-app notifications for expense changes in shared wallets.
 
-Phase 1 does not need:
+The product direction still does not assume these unless explicitly requested:
 
 - Bank integrations.
 - OCR receipt scanning.
@@ -94,7 +94,7 @@ An expense should include:
 - Optional attachment files.
 - Split rows for each participant.
 
-Default split behavior for Phase 1 can be equal split among all active wallet members. The schema also supports amount, percentage, and shares-based splits through `ExpenseSplit`.
+Default split behavior can be equal split among all active wallet members. The schema also supports amount, percentage, and shares-based splits through `ExpenseSplit`.
 
 ### Monthly Summary
 
@@ -120,7 +120,7 @@ The settlement algorithm should start simple and deterministic:
 
 ### Telegram Expense Entry
 
-Telegram is an additional client for Phase 1. The bot lives in the separate
+Telegram is an additional client. The bot lives in the separate
 `E:\Tino\tino-telebot` project and always calls the Express backend; it must
 never access Supabase directly.
 
@@ -459,7 +459,7 @@ The Express backend should own:
 
 The web and mobile clients should not bypass backend authorization for sensitive writes.
 
-Recommended API surface for Phase 1:
+Recommended API surface:
 
 - `POST /auth/register`
 - `POST /auth/login`
@@ -602,8 +602,8 @@ These decisions are still open and should be confirmed before implementing the r
 
 - Primary currency: VND only, or multi-currency from the start?
 - Wallet invitation model: invite by email, invite link, or manual member creation?
-- Can non-registered people be temporary wallet members in Phase 1?
-- Split behavior: always equal split in Phase 1, or allow custom split per expense?
+- Can non-registered people be temporary wallet members?
+- Split behavior: always equal split by default, or allow custom split per expense?
 - Auth transport: HTTP-only cookie session or JWT bearer token?
 - Backend location: `apps/api` inside this monorepo, or separate repository?
 - Supabase access: backend uses Supabase client, direct Postgres driver, Prisma, Drizzle, or another ORM/query builder?
@@ -615,7 +615,7 @@ Before making meaningful product or architecture changes, read this file first.
 
 When adding a feature:
 
-- Preserve the Phase 1 scope unless the user explicitly expands it.
+- Preserve the current product scope unless the user explicitly expands it.
 - Prefer simple, working product flows over speculative architecture.
 - Keep manual auth separate from Supabase Auth.
 - Update this file when a major product or technical decision changes.
