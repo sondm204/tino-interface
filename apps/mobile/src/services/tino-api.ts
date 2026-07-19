@@ -4,6 +4,8 @@ import { apiRequest, getRefreshToken } from "@/lib/api-client";
 import type { PageableResponse } from "@/types/api";
 import type {
   Attachment,
+  BankAccount,
+  DecodedBankQr,
   Expense,
   ExpenseSplit,
   Notification,
@@ -12,6 +14,7 @@ import type {
   WalletMember,
   WalletMemberWithUser,
   WalletSummary,
+  PaymentQr,
 } from "@/types/domain";
 
 export type LoginPayload = {
@@ -82,6 +85,22 @@ export type RecentExpense = Expense & {
   wallet_name: string;
 };
 
+export type BankAccountPayload = {
+  bank_name: string;
+  bank_bin: string;
+  account_number: string;
+  account_name: string;
+  is_default?: boolean;
+};
+
+export type CreatePaymentQrPayload = {
+  to_user_id: string;
+  amount: number;
+  currency: "VND" | "USD";
+  content?: string;
+  month?: string;
+};
+
 export const tinoApi = {
   register: (payload: RegisterPayload) =>
     apiRequest<AuthPayload>("/auth/register", {
@@ -125,6 +144,46 @@ export const tinoApi = {
       }
     );
   },
+  listBankAccounts: () =>
+    apiRequest<BankAccount[]>("/api/users/me/bank-accounts"),
+  createBankAccount: (payload: BankAccountPayload) =>
+    apiRequest<BankAccount>("/api/users/me/bank-accounts", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  deleteBankAccount: (bankAccountId: string) =>
+    apiRequest<{ id: string }>(`/api/users/me/bank-accounts/${bankAccountId}`, {
+      method: "DELETE",
+    }),
+  decodeBankAccountQrImage: async (file: UploadAvatarFile) => {
+    const blob =
+      Platform.OS === "web"
+        ? await fetch(file.uri).then((response) => response.blob())
+        : new File(file.uri);
+    const formData = new FormData();
+    formData.append("qr_image", blob, file.name);
+
+    return apiRequest<DecodedBankQr>("/api/users/me/bank-accounts/qr-decode", {
+      method: "POST",
+      body: formData,
+    });
+  },
+  uploadBankAccountQrImage: async (
+    bankAccountId: string,
+    file: UploadAvatarFile
+  ) => {
+    const blob =
+      Platform.OS === "web"
+        ? await fetch(file.uri).then((response) => response.blob())
+        : new File(file.uri);
+    const formData = new FormData();
+    formData.append("qr_image", blob, file.name);
+
+    return apiRequest<BankAccount>(
+      `/api/users/me/bank-accounts/${bankAccountId}/qr-image`,
+      { method: "POST", body: formData }
+    );
+  },
   createTelegramLinkCode: () =>
     apiRequest<TelegramCode>("/api/telegram/link-code", {
       method: "POST",
@@ -166,6 +225,11 @@ export const tinoApi = {
     }),
   getSummary: (walletId: string, month: string) =>
     apiRequest<WalletSummary>(`/api/wallets/${walletId}/summary?month=${month}`),
+  createPaymentQr: (walletId: string, payload: CreatePaymentQrPayload) =>
+    apiRequest<PaymentQr>(`/api/wallets/${walletId}/payment-qr`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   listExpenses: (walletId: string, page = 1, size = 20, month?: string) => {
     const params = new URLSearchParams({
       page: String(page),

@@ -19,6 +19,7 @@ import {
   Copy,
   ImagePlus,
   Plus,
+  QrCode,
   Scale,
   Send,
   Trash2,
@@ -43,6 +44,7 @@ import { splitMethodLabel } from "@/lib/labels";
 import { useAppSelector } from "@/store/hooks";
 import {
   useCreateExpenseMutation,
+  useCreatePaymentQrMutation,
   useCreateTelegramWalletConnectCodeMutation,
   useDeleteExpenseAttachmentMutation,
   useDeleteExpenseMutation,
@@ -54,7 +56,7 @@ import {
   useUploadExpenseAttachmentMutation,
 } from "@/store/tino-api-slice";
 import type { TelegramCode } from "@/services/tino-api";
-import type { Attachment, Expense, ExpenseSplit } from "@/types/domain";
+import type { Attachment, Expense, ExpenseSplit, PaymentQr } from "@/types/domain";
 
 const splitOptions = [
   { label: "Chia đều", value: "equal" },
@@ -131,6 +133,7 @@ export function WalletDetailScreen() {
   const [previewAttachment, setPreviewAttachment] =
     useState<Attachment | null>(null);
   const [telegramCode, setTelegramCode] = useState<TelegramCode | null>(null);
+  const [paymentQr, setPaymentQr] = useState<PaymentQr | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
@@ -160,6 +163,7 @@ export function WalletDetailScreen() {
   const [createExpense, createState] = useCreateExpenseMutation();
   const [createTelegramWalletConnectCode, telegramCodeState] =
     useCreateTelegramWalletConnectCodeMutation();
+  const [createPaymentQr, paymentQrState] = useCreatePaymentQrMutation();
   const [uploadExpenseAttachment, uploadAttachmentState] =
     useUploadExpenseAttachmentMutation();
   const [deleteExpenseAttachment, deleteAttachmentState] =
@@ -602,6 +606,35 @@ export function WalletDetailScreen() {
     alert("Đã sao chép", "Lệnh kết nối Telegram đã được sao chép.");
   }
 
+  async function handleCreatePaymentQr(settlement: {
+    to_user_id: string;
+    amount: number;
+    currency: "VND" | "USD";
+  }) {
+    if (!summaryQuery.data?.wallet) return;
+
+    const result = await createPaymentQr({
+      walletId,
+      payload: {
+        to_user_id: settlement.to_user_id,
+        amount: settlement.amount,
+        currency: settlement.currency,
+        month,
+      },
+    });
+
+    if ("error" in result) {
+      alert(
+        "Không thể tạo QR",
+        result.error?.message ||
+          "Người nhận cần cấu hình tài khoản ngân hàng mặc định."
+      );
+      return;
+    }
+
+    setPaymentQr(result.data);
+  }
+
   async function handleInviteWalletMember() {
     if (!walletId || !inviteEmail.trim()) {
       alert("Thiếu thông tin", "Vui lòng nhập email thành viên.");
@@ -822,6 +855,17 @@ export function WalletDetailScreen() {
                 <Text className="text-sm font-bold">
                   {formatCurrency(settlement.amount, settlement.currency)}
                 </Text>
+                {currentUser?.id === settlement.from_user_id ? (
+                  <Button
+                    className="px-3"
+                    loading={paymentQrState.isLoading}
+                    onPress={() => void handleCreatePaymentQr(settlement)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <QrCode color={isDark ? "#f8fafc" : "#0f172a"} size={15} />
+                  </Button>
+                ) : null}
               </View>
             ))
           ) : (
@@ -893,6 +937,39 @@ export function WalletDetailScreen() {
               <Plus color="#fff" size={16} />
               Mời vào ví
             </Button>
+          </View>
+        ) : null}
+      </Dialog>
+
+      <Dialog
+        open={paymentQr !== null}
+        onOpenChange={(open) => {
+          if (!open) setPaymentQr(null);
+        }}
+        title="QR thanh toán"
+      >
+        {paymentQr ? (
+          <View className="gap-4">
+            <View className="items-center rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700">
+              <Image
+                className="size-64"
+                resizeMode="contain"
+                source={{ uri: paymentQr.qr_image_url }}
+              />
+            </View>
+            <View className="gap-1 rounded-xl bg-slate-50 p-3 dark:bg-slate-950">
+              <Text className="font-semibold">
+                {paymentQr.receiver.account_name}
+              </Text>
+              <Text variant="muted">
+                {paymentQr.receiver.bank_name} ·{" "}
+                {paymentQr.receiver.account_number}
+              </Text>
+              <Text className="font-bold">
+                {formatCurrency(paymentQr.amount, paymentQr.currency)}
+              </Text>
+              <Text variant="small">{paymentQr.content}</Text>
+            </View>
           </View>
         ) : null}
       </Dialog>

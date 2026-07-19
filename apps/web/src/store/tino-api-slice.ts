@@ -2,6 +2,8 @@ import { createApi, fakeBaseQuery } from "@reduxjs/toolkit/query/react";
 import type { ApiResponse, PageableResponse } from "@/src/types/api";
 import type {
   Attachment,
+  BankAccount,
+  DecodedBankQr,
   Expense,
   Notification,
   Wallet,
@@ -9,10 +11,13 @@ import type {
   WalletMemberWithUser,
   WalletSummary,
   User,
+  PaymentQr,
 } from "@/src/types/domain";
 import {
   tinoApi,
   type AuthPayload,
+  type BankAccountPayload,
+  type CreatePaymentQrPayload,
   type CreateExpensePayload,
   type CreateWalletPayload,
   type ChangePasswordPayload,
@@ -50,7 +55,7 @@ export const tinoApiSlice = createApi({
   reducerPath: "tinoApi",
   baseQuery: fakeBaseQuery<ApiError>(),
   keepUnusedDataFor: 60 * 60,
-  tagTypes: ["Auth", "Wallets", "WalletMembers", "Expenses", "Summary", "Notifications"],
+  tagTypes: ["Auth", "Wallets", "WalletMembers", "Expenses", "Summary", "Notifications", "BankAccounts"],
   endpoints: (builder) => ({
     login: builder.mutation<AuthPayload, LoginPayload>({
       queryFn: (payload) => runApi(() => tinoApi.login(payload)),
@@ -84,6 +89,30 @@ export const tinoApiSlice = createApi({
     >({
       queryFn: (file) => runApi(() => tinoApi.uploadAvatar(file)),
       invalidatesTags: ["Auth"],
+    }),
+    getBankAccounts: builder.query<BankAccount[], void>({
+      queryFn: () => runApi(() => tinoApi.listBankAccounts()),
+      providesTags: ["BankAccounts"],
+    }),
+    createBankAccount: builder.mutation<BankAccount, BankAccountPayload>({
+      queryFn: (payload) => runApi(() => tinoApi.createBankAccount(payload)),
+      invalidatesTags: ["BankAccounts"],
+    }),
+    deleteBankAccount: builder.mutation<{ id: string }, string>({
+      queryFn: (bankAccountId) =>
+        runApi(() => tinoApi.deleteBankAccount(bankAccountId)),
+      invalidatesTags: ["BankAccounts"],
+    }),
+    decodeBankAccountQrImage: builder.mutation<DecodedBankQr, File>({
+      queryFn: (file) => runApi(() => tinoApi.decodeBankAccountQrImage(file)),
+    }),
+    uploadBankAccountQrImage: builder.mutation<
+      BankAccount,
+      { bankAccountId: string; file: File }
+    >({
+      queryFn: ({ bankAccountId, file }) =>
+        runApi(() => tinoApi.uploadBankAccountQrImage(bankAccountId, file)),
+      invalidatesTags: ["BankAccounts"],
     }),
     findUserByEmail: builder.query<User, string>({
       queryFn: (email) => runApi(() => tinoApi.findUserByEmail(email)),
@@ -202,6 +231,13 @@ export const tinoApiSlice = createApi({
         { type: "Summary", id: walletId },
       ],
     }),
+    createPaymentQr: builder.mutation<
+      PaymentQr,
+      { walletId: string; payload: CreatePaymentQrPayload }
+    >({
+      queryFn: ({ walletId, payload }) =>
+        runApi(() => tinoApi.createPaymentQr(walletId, payload)),
+    }),
     createExpense: builder.mutation<
       Expense,
       { walletId: string; payload: CreateExpensePayload }
@@ -295,13 +331,18 @@ export const {
   useAddWalletMemberMutation,
   useChangePasswordMutation,
   useCreateExpenseMutation,
+  useCreateBankAccountMutation,
+  useCreatePaymentQrMutation,
   useCreateTelegramLinkCodeMutation,
   useCreateTelegramWalletConnectCodeMutation,
   useCreateWalletMutation,
+  useDecodeBankAccountQrImageMutation,
   useDeleteExpenseMutation,
   useDeleteExpenseAttachmentMutation,
+  useDeleteBankAccountMutation,
   useDeleteWalletMutation,
   useGetCurrentUserQuery,
+  useGetBankAccountsQuery,
   useFindUserByEmailQuery,
   useGetNotificationsQuery,
   useGetUnreadNotificationCountQuery,
@@ -320,4 +361,5 @@ export const {
   useUpdateExpenseMutation,
   useUploadExpenseAttachmentMutation,
   useUploadAvatarMutation,
+  useUploadBankAccountQrImageMutation,
 } = tinoApiSlice;

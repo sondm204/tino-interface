@@ -6,6 +6,7 @@
   "exports": {
     "./labels": "./src/labels.ts",
     "./format": "./src/format.ts",
+    "./banks": "./src/banks.ts",
     "./quick-settle": "./src/quick-settle.ts",
     "./types/api": "./src/types/api.ts",
     "./types/domain": "./src/types/domain.ts"

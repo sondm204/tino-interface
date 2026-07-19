@@ -17,6 +17,7 @@ import {
   ImagePlus,
   LogOut,
   Plus,
+  QrCode,
   ReceiptText,
   Send,
   Trash2,
@@ -59,6 +60,7 @@ import { settlementStatusLabel, splitMethodLabel } from "@/src/lib/labels";
 import { useAppSelector } from "@/src/store/hooks";
 import {
   useCreateExpenseMutation,
+  useCreatePaymentQrMutation,
   useCreateTelegramWalletConnectCodeMutation,
   useDeleteWalletMutation,
   useDeleteExpenseAttachmentMutation,
@@ -73,7 +75,7 @@ import {
   useUploadExpenseAttachmentMutation,
 } from "@/src/store/tino-api-slice";
 import type { TelegramCode } from "@/src/services/tino-api";
-import type { Attachment, Expense, ExpenseSplit, User } from "@/src/types/domain";
+import type { Attachment, Expense, ExpenseSplit, PaymentQr, User } from "@/src/types/domain";
 
 function currentMonth() {
   return new Date().toISOString().slice(0, 7);
@@ -136,6 +138,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
   const [createExpense, createExpenseState] = useCreateExpenseMutation();
   const [createTelegramWalletConnectCode, telegramCodeState] =
     useCreateTelegramWalletConnectCodeMutation();
+  const [createPaymentQr, paymentQrState] = useCreatePaymentQrMutation();
   const [uploadExpenseAttachment, uploadAttachmentState] =
     useUploadExpenseAttachmentMutation();
   const [deleteExpenseAttachment, deleteAttachmentState] =
@@ -178,6 +181,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
   const [splitValues, setSplitValues] = useState<Record<string, string>>({});
   const [newAttachmentFiles, setNewAttachmentFiles] = useState<File[]>([]);
   const [telegramCode, setTelegramCode] = useState<TelegramCode | null>(null);
+  const [paymentQr, setPaymentQr] = useState<PaymentQr | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [debouncedInviteEmail, setDebouncedInviteEmail] = useState("");
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
@@ -255,21 +259,12 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
   );
 
   useEffect(() => {
-    if (!inviteDialogOpen) {
-      setDebouncedInviteEmail("");
-      return;
-    }
-
-    const email = inviteEmail.trim().toLowerCase();
-
-    if (!email.includes("@")) {
-      setDebouncedInviteEmail("");
-      return;
-    }
+    const email = inviteDialogOpen ? inviteEmail.trim().toLowerCase() : "";
+    const nextDebouncedEmail = email.includes("@") ? email : "";
 
     const timeout = window.setTimeout(() => {
-      setDebouncedInviteEmail(email);
-    }, 500);
+      setDebouncedInviteEmail(nextDebouncedEmail);
+    }, nextDebouncedEmail ? 500 : 0);
 
     return () => window.clearTimeout(timeout);
   }, [inviteDialogOpen, inviteEmail]);
@@ -609,6 +604,33 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
     if (!telegramCode) return;
     await navigator.clipboard.writeText(`/connect ${telegramCode.code}`);
     toast.success("Đã sao chép lệnh kết nối");
+  }
+
+  async function handleCreatePaymentQr(settlement: {
+    to_user_id: string;
+    amount: number;
+    currency: "VND" | "USD";
+  }) {
+    if (!wallet) return;
+
+    try {
+      const qr = await createPaymentQr({
+        walletId: wallet.id,
+        payload: {
+          to_user_id: settlement.to_user_id,
+          amount: settlement.amount,
+          currency: settlement.currency,
+          month,
+        },
+      }).unwrap();
+      setPaymentQr(qr);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Không thể tạo QR thanh toán. Người nhận cần cấu hình tài khoản ngân hàng."
+      );
+    }
   }
 
   function openExpenseEditor(expense: Expense) {
@@ -1266,6 +1288,19 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
                         <p className="mt-2 text-lg font-semibold">
                           {formatCurrency(settlement.amount, settlement.currency)}
                         </p>
+                        {currentUser?.id === settlement.from_user_id ? (
+                          <Button
+                            className="mt-3"
+                            disabled={paymentQrState.isLoading}
+                            onClick={() => void handleCreatePaymentQr(settlement)}
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                          >
+                            <QrCode />
+                            Tạo QR thanh toán
+                          </Button>
+                        ) : null}
                       </div>
                     ))
                   ) : (
@@ -1905,6 +1940,40 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
                 </div>
               </div>
             </form>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) setPaymentQr(null);
+        }}
+        open={paymentQr !== null}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>QR thanh toán</DialogTitle>
+            <DialogDescription>
+              Mở app ngân hàng và quét mã để chuyển đúng số tiền.
+            </DialogDescription>
+          </DialogHeader>
+          {paymentQr ? (
+            <div className="space-y-4">
+              <div className="flex justify-center rounded-md border bg-white p-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  alt="QR thanh toán"
+                  className="size-64 object-contain"
+                  src={paymentQr.qr_image_url}
+                />
+              </div>
+              <div className="space-y-1 rounded-md bg-muted/40 p-3 text-sm">
+                <p className="font-semibold">{paymentQr.receiver.account_name}</p>
+                <p>{paymentQr.receiver.bank_name} · {paymentQr.receiver.account_number}</p>
+                <p>{formatCurrency(paymentQr.amount, paymentQr.currency)}</p>
+                <p className="text-muted-foreground">{paymentQr.content}</p>
+              </div>
+            </div>
           ) : null}
         </DialogContent>
       </Dialog>

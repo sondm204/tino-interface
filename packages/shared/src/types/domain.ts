@@ -8,6 +8,27 @@ export type User = {
   updated_at: string | null;
 };
 
+export type BankAccount = {
+  id: string;
+  user_id: string;
+  bank_name: string;
+  bank_bin: string;
+  account_number: string;
+  account_name: string;
+  qr_image_url: string | null;
+  qr_image_path: string | null;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string | null;
+};
+
+export type DecodedBankQr = {
+  bank_bin: string;
+  account_number: string;
+  account_name: string | null;
+  raw_payload: string;
+};
+
 export type Wallet = {
   id: string;
   name: string;
@@ -91,6 +112,20 @@ export type WalletSummary = {
     amount: number;
     currency: "VND" | "USD";
   }>;
+};
+
+export type PaymentQr = {
+  qr_image_url: string;
+  amount: number;
+  currency: "VND";
+  content: string;
+  receiver: {
+    user_id: string;
+    bank_name: string;
+    bank_bin: string;
+    account_number: string;
+    account_name: string;
+  };
 };
 
 export type Notification = {

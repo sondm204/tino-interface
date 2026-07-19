@@ -1,8 +1,11 @@
 export type {
   Attachment,
+  BankAccount,
+  DecodedBankQr,
   Expense,
   ExpenseSplit,
   Notification,
+  PaymentQr,
   User,
   Wallet,
   WalletMember,

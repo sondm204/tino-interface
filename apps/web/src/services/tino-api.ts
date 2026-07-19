@@ -5,6 +5,8 @@ import {
 import type { PageableResponse } from "@/src/types/api";
 import type {
   Attachment,
+  BankAccount,
+  DecodedBankQr,
   Expense,
   ExpenseSplit,
   Notification,
@@ -13,6 +15,7 @@ import type {
   WalletMemberWithUser,
   WalletSummary,
   User,
+  PaymentQr,
 } from "@/src/types/domain";
 
 export type LoginPayload = {
@@ -73,6 +76,22 @@ export type RegisterPushDevicePayload = {
   device_name?: string | null;
 };
 
+export type BankAccountPayload = {
+  bank_name: string;
+  bank_bin: string;
+  account_number: string;
+  account_name: string;
+  is_default?: boolean;
+};
+
+export type CreatePaymentQrPayload = {
+  to_user_id: string;
+  amount: number;
+  currency: "VND" | "USD";
+  content?: string;
+  month?: string;
+};
+
 export const tinoApi = {
   register: (payload: RegisterPayload) =>
     apiRequest<AuthPayload>("/auth/register", {
@@ -113,6 +132,35 @@ export const tinoApi = {
       method: "POST",
       body: formData,
     });
+  },
+  listBankAccounts: () =>
+    apiRequest<BankAccount[]>("/api/users/me/bank-accounts"),
+  createBankAccount: (payload: BankAccountPayload) =>
+    apiRequest<BankAccount>("/api/users/me/bank-accounts", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  deleteBankAccount: (bankAccountId: string) =>
+    apiRequest<{ id: string }>(`/api/users/me/bank-accounts/${bankAccountId}`, {
+      method: "DELETE",
+    }),
+  decodeBankAccountQrImage: (file: File) => {
+    const formData = new FormData();
+    formData.append("qr_image", file);
+
+    return apiRequest<DecodedBankQr>("/api/users/me/bank-accounts/qr-decode", {
+      method: "POST",
+      body: formData,
+    });
+  },
+  uploadBankAccountQrImage: (bankAccountId: string, file: File) => {
+    const formData = new FormData();
+    formData.append("qr_image", file);
+
+    return apiRequest<BankAccount>(
+      `/api/users/me/bank-accounts/${bankAccountId}/qr-image`,
+      { method: "POST", body: formData }
+    );
   },
   findUserByEmail: (email: string) => {
     const params = new URLSearchParams({ email });
@@ -180,6 +228,11 @@ export const tinoApi = {
     }),
   getSummary: (walletId: string, month: string) =>
     apiRequest<WalletSummary>(`/api/wallets/${walletId}/summary?month=${month}`),
+  createPaymentQr: (walletId: string, payload: CreatePaymentQrPayload) =>
+    apiRequest<PaymentQr>(`/api/wallets/${walletId}/payment-qr`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   listExpenses: (walletId: string, page = 1, size = 20, month?: string) => {
     const params = new URLSearchParams({
       page: String(page),
