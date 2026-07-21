@@ -3,17 +3,9 @@ import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
-import { apiRequest } from "@/lib/api-client";
+import { tinoApi, type RegisterPushDevicePayload } from "@/services/tino-api";
 
 const PUSH_DEVICE_ID_KEY = "tino-push-device-id";
-
-type RegisterPushDevicePayload = {
-  device_id: string;
-  platform: "ios" | "android" | "web";
-  fcm_token: string;
-  app_version?: string | null;
-  device_name?: string | null;
-};
 
 function createDeviceId() {
   return [
@@ -47,11 +39,17 @@ async function ensureNotificationPermission() {
 }
 
 export async function registerPushDevice() {
-  if (Platform.OS === "web" || !Device.isDevice) {
+  console.info("Push device registration started", {
+    isDevice: Device.isDevice,
+    platform: Platform.OS,
+  });
+  if (Platform.OS === "web") {
+    console.info("Push device registration skipped on web platform");
     return { registered: false };
   }
 
   if (Platform.OS === "android") {
+    console.info("Configuring Android notification channel");
     await Notifications.setNotificationChannelAsync("default", {
       name: "Thông báo",
       importance: Notifications.AndroidImportance.MAX,
@@ -59,12 +57,18 @@ export async function registerPushDevice() {
   }
 
   const hasPermission = await ensureNotificationPermission();
+  console.info("Push notification permission checked", { hasPermission });
 
   if (!hasPermission) {
     return { registered: false };
   }
 
+  console.info("Requesting native push token");
   const token = await Notifications.getDevicePushTokenAsync();
+  console.info("Native push token acquired", {
+    hasToken: Boolean(token.data),
+    type: token.type,
+  });
   const deviceId = await getPushDeviceId();
   const platform = Platform.OS === "ios" ? "ios" : "android";
   const payload: RegisterPushDevicePayload = {
@@ -75,10 +79,12 @@ export async function registerPushDevice() {
     device_name: Device.deviceName ?? Device.modelName ?? null,
   };
 
-  await apiRequest("/api/push-devices", {
-    method: "PUT",
-    body: JSON.stringify(payload),
+  console.info("Saving push device to API", {
+    hasToken: Boolean(payload.fcm_token),
+    platform: payload.platform,
   });
+  await tinoApi.registerPushDevice(payload);
+  console.info("Push device saved to API");
 
   return { registered: true };
 }
@@ -90,10 +96,6 @@ export async function unregisterCurrentPushDevice() {
     return { revoked: 0 };
   }
 
-  const response = await apiRequest<{ revoked: number }>(
-    `/api/push-devices/${encodeURIComponent(deviceId)}`,
-    { method: "DELETE" }
-  );
-
+  const response = await tinoApi.unregisterPushDevice(deviceId);
   return response.data ?? { revoked: 0 };
 }

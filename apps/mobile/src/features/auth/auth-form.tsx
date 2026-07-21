@@ -12,6 +12,7 @@ import {
   setRefreshToken,
   setStoredCurrentUser,
 } from "@/lib/api-client";
+import { registerPushDevice } from "@/lib/push-notifications";
 import { setCurrentUser } from "@/store/auth-slice";
 import { useAppDispatch } from "@/store/hooks";
 import {
@@ -58,6 +59,9 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     await setRefreshToken(result.data.refresh_token);
     await setStoredCurrentUser(result.data.user);
     dispatch(setCurrentUser(result.data.user));
+    registerPushDevice().catch((error) => {
+      console.warn("Could not register push device", error);
+    });
     router.replace("/wallets");
   }
 

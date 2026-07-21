@@ -48,8 +48,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "build:apk": "eas build -p android --profile preview --clear-cache",
-    "build:apk:clean": "eas build -p android --profile production"
+    "build:apk": "eas build -p android --profile preview",
+    "build:apk:clean": "eas build -p android --profile preview --clear-cache"
   },
   "private": true
 }
