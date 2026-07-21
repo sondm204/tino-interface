@@ -1,5 +1,13 @@
 ﻿import { PropsWithChildren } from "react";
-import { ActivityIndicator, ScrollView, View } from "react-native";
+import {
+  ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/ui/text";
 
@@ -10,25 +18,44 @@ type ScreenProps = PropsWithChildren<{
 export function Screen({ children, scroll = true }: ScreenProps) {
   const insets = useSafeAreaInsets();
   const content = (
-    <View
-      className="flex-1 gap-4 bg-slate-50 px-4 dark:bg-slate-950"
-      style={{
-        paddingBottom: Math.max(insets.bottom + 20, 32),
-        paddingTop: Math.max(insets.top + 16, 28),
-      }}
-    >
-      {children}
-    </View>
+    <Pressable className="flex-1" onPress={Keyboard.dismiss} accessible={false}>
+      <View
+        className="flex-1 gap-4 bg-slate-50 px-4 dark:bg-slate-950"
+        style={{
+          paddingBottom: Math.max(insets.bottom + 20, 32),
+          paddingTop: Math.max(insets.top + 16, 28),
+        }}
+      >
+        {children}
+      </View>
+    </Pressable>
   );
 
   if (!scroll) {
-    return content;
+    return (
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1 bg-slate-50 dark:bg-slate-950"
+      >
+        {content}
+      </KeyboardAvoidingView>
+    );
   }
 
   return (
-    <ScrollView className="bg-slate-50 dark:bg-slate-950" contentContainerClassName="flex-grow">
-      {content}
-    </ScrollView>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      className="flex-1 bg-slate-50 dark:bg-slate-950"
+    >
+      <ScrollView
+        className="bg-slate-50 dark:bg-slate-950"
+        contentContainerClassName="flex-grow"
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+      >
+        {content}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

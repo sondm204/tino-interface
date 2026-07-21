@@ -1,13 +1,7 @@
 import { router } from "expo-router";
 import { useMemo, useRef, useState } from "react";
-import { Pressable, View } from "react-native";
+import { Animated, Easing, Pressable, View } from "react-native";
 import { ArrowLeft, Copy, Plus, RotateCcw, Trash2 } from "lucide-react-native";
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
 import Svg, { G, Path, Text as SvgText } from "react-native-svg";
 import { Screen } from "@/components/screen";
 import { Button } from "@/components/ui/button";
@@ -45,7 +39,6 @@ const wheelColors = [
 const wheelSize = 280;
 const wheelCenter = wheelSize / 2;
 const wheelRadius = 132;
-const wheelSpinEasing = Easing.bezier(0.12, 0, 0.08, 1);
 
 function createOption(index: number): WheelOption {
   return {
@@ -85,7 +78,7 @@ export function WheelScreen() {
   const [winner, setWinner] = useState<WheelWinner | null>(null);
   const [resultOpen, setResultOpen] = useState(false);
   const [spinning, setSpinning] = useState(false);
-  const rotationValue = useSharedValue(0);
+  const rotationValue = useRef(new Animated.Value(0)).current;
   const rotationRef = useRef(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeOptions = useMemo<WheelWinner[]>(
@@ -97,9 +90,16 @@ export function WheelScreen() {
   );
   const segmentAngle = activeOptions.length ? 360 / activeOptions.length : 360;
   const canSpin = activeOptions.length >= 2 && !spinning;
-  const animatedWheelStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${rotationValue.value}deg` }],
-  }));
+  const animatedWheelStyle = {
+    transform: [
+      {
+        rotate: rotationValue.interpolate({
+          inputRange: [0, 360],
+          outputRange: ["0deg", "360deg"],
+        }),
+      },
+    ],
+  };
 
   function updateOption(id: string, label: string) {
     setOptions((current) =>
@@ -169,15 +169,16 @@ export function WheelScreen() {
     setWinner(null);
     setResultOpen(false);
     setSpinning(true);
-    rotationValue.value = withTiming(targetRotation, {
+    Animated.timing(rotationValue, {
       duration,
-      easing: wheelSpinEasing,
-    });
-    timeoutRef.current = setTimeout(() => {
+      easing: Easing.out(Easing.cubic),
+      toValue: targetRotation,
+      useNativeDriver: true,
+    }).start(() => {
       setWinner(activeOptions[winnerIndex]);
       setResultOpen(true);
       setSpinning(false);
-    }, duration + 120);
+    });
   }
 
   return (
