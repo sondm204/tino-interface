@@ -1,6 +1,15 @@
 ﻿import { useState } from "react";
-import { Image, View } from "react-native";
+import {
+  Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  View,
+} from "react-native";
 import { Link, router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAlertDialog } from "@/components/ui/alert-dialog";
@@ -24,6 +33,7 @@ const tinoIcon = require("../../../assets/tino-icon.png");
 
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const { alert } = useAlertDialog();
+  const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
   const [login, loginState] = useLoginMutation();
   const [register, registerState] = useRegisterMutation();
@@ -71,57 +81,74 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   }
 
   return (
-    <View className="flex-1 justify-center bg-slate-50 p-4 dark:bg-slate-950">
-      <Card className="gap-3">
-        <View className="mb-2 items-center gap-2">
-          <Image
-            accessibilityIgnoresInvertColors
-            className="size-16"
-            resizeMode="contain"
-            source={tinoIcon}
-          />
-          <Text className="text-center" variant="headline">Tino Expense</Text>
-          <Text variant="muted">
-            {isRegister
-              ? "Tạo tài khoản để bắt đầu tracking chi tiêu."
-              : "Đăng nhập để tiếp tục quản lý ví chi tiêu."}
-          </Text>
-        </View>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      className="flex-1 bg-slate-50 dark:bg-slate-950"
+    >
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: "center",
+          paddingBottom: Math.max(insets.bottom + 24, 32),
+          paddingHorizontal: 16,
+          paddingTop: Math.max(insets.top + 24, 32),
+        }}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+      >
+        <Pressable onPress={Keyboard.dismiss}>
+          <Card className="gap-3">
+            <View className="mb-2 items-center gap-2">
+              <Image
+                accessibilityIgnoresInvertColors
+                className="size-16"
+                resizeMode="contain"
+                source={tinoIcon}
+              />
+              <Text className="text-center" variant="headline">Tino Expense</Text>
+              <Text variant="muted">
+                {isRegister
+                  ? "Tạo tài khoản để bắt đầu tracking chi tiêu."
+                  : "Đăng nhập để tiếp tục quản lý ví chi tiêu."}
+              </Text>
+            </View>
 
-        {isRegister ? (
-          <Input
-            onChangeText={setDisplayName}
-            placeholder="Tên hiển thị"
-            value={displayName}
-          />
-        ) : null}
-        <Input
-          autoCapitalize="none"
-          keyboardType="email-address"
-          onChangeText={setEmail}
-          placeholder="Email"
-          value={email}
-        />
-        <Input
-          onChangeText={setPassword}
-          placeholder="Mật khẩu"
-          secureTextEntry
-          value={password}
-        />
-        {error ? <Text className="text-red-600" variant="small">{error}</Text> : null}
-        <Button loading={isLoading} onPress={handleSubmit}>
-          {isRegister ? "Tạo tài khoản" : "Đăng nhập"}
-        </Button>
-        <Button onPress={resetLocalSession} variant="ghost">
-          Xóa phiên local
-        </Button>
-        <Text className="text-center" variant="muted">
-          {isRegister ? "Đã có tài khoản? " : "Chưa có tài khoản? "}
-          <Link href={isRegister ? "/login" : "/register"}>
-            {isRegister ? "Đăng nhập" : "Đăng ký"}
-          </Link>
-        </Text>
-      </Card>
-    </View>
+            {isRegister ? (
+              <Input
+                onChangeText={setDisplayName}
+                placeholder="Tên hiển thị"
+                value={displayName}
+              />
+            ) : null}
+            <Input
+              autoCapitalize="none"
+              keyboardType="email-address"
+              onChangeText={setEmail}
+              placeholder="Email"
+              value={email}
+            />
+            <Input
+              onChangeText={setPassword}
+              placeholder="Mật khẩu"
+              secureTextEntry
+              value={password}
+            />
+            {error ? <Text className="text-red-600" variant="small">{error}</Text> : null}
+            <Button loading={isLoading} onPress={handleSubmit}>
+              {isRegister ? "Tạo tài khoản" : "Đăng nhập"}
+            </Button>
+            <Button onPress={resetLocalSession} variant="ghost">
+              Xóa phiên local
+            </Button>
+            <Text className="text-center" variant="muted">
+              {isRegister ? "Đã có tài khoản? " : "Chưa có tài khoản? "}
+              <Link href={isRegister ? "/login" : "/register"}>
+                {isRegister ? "Đăng nhập" : "Đăng ký"}
+              </Link>
+            </Text>
+          </Card>
+        </Pressable>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }

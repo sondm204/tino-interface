@@ -34,7 +34,7 @@ export function Screen({ children, scroll = true }: ScreenProps) {
   if (!scroll) {
     return (
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         className="flex-1 bg-slate-50 dark:bg-slate-950"
       >
         {content}
@@ -44,7 +44,7 @@ export function Screen({ children, scroll = true }: ScreenProps) {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
       className="flex-1 bg-slate-50 dark:bg-slate-950"
     >
       <ScrollView
