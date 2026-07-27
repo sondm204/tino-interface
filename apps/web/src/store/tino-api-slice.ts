@@ -22,6 +22,7 @@ import {
   type CreateWalletPayload,
   type ChangePasswordPayload,
   type LoginPayload,
+  type ReceiptExpenseDraft,
   type RegisterPayload,
   type TelegramCode,
   type UpdateProfilePayload,
@@ -250,6 +251,13 @@ export const tinoApiSlice = createApi({
         { type: "Wallets", id: "LIST" },
       ],
     }),
+    createReceiptExpenseDraft: builder.mutation<
+      ReceiptExpenseDraft,
+      { walletId: string; file: File }
+    >({
+      queryFn: ({ walletId, file }) =>
+        runApi(() => tinoApi.createReceiptExpenseDraft(walletId, file)),
+    }),
     updateExpense: builder.mutation<
       Expense,
       {
@@ -331,6 +339,7 @@ export const {
   useAddWalletMemberMutation,
   useChangePasswordMutation,
   useCreateExpenseMutation,
+  useCreateReceiptExpenseDraftMutation,
   useCreateBankAccountMutation,
   useCreatePaymentQrMutation,
   useCreateTelegramLinkCodeMutation,

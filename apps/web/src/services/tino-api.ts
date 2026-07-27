@@ -54,6 +54,19 @@ export type CreateExpensePayload = {
   splits?: ExpenseSplit[];
 };
 
+export type ReceiptExpenseDraft = {
+  title: string;
+  description: string | null;
+  total_amount: number | null;
+  expense_date: string;
+  merchant_name: string | null;
+  confidence: number | null;
+  source: {
+    model_id: string;
+    api_version: string;
+  };
+};
+
 export type UpdateProfilePayload = {
   display_name: string;
 };
@@ -252,6 +265,15 @@ export const tinoApi = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  createReceiptExpenseDraft: (walletId: string, file: File) => {
+    const formData = new FormData();
+    formData.append("receipt", file);
+
+    return apiRequest<ReceiptExpenseDraft>(
+      `/api/wallets/${walletId}/expenses/receipt-draft`,
+      { method: "POST", body: formData }
+    );
+  },
   updateExpense: (
     walletId: string,
     expenseId: string,

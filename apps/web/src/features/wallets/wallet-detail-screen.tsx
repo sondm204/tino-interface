@@ -8,13 +8,16 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
   ArrowLeft,
   CalendarDays,
   Copy,
+  FileSearch,
   ImagePlus,
+  LoaderCircle,
   LogOut,
   Plus,
   QrCode,
@@ -61,6 +64,7 @@ import { useAppSelector } from "@/src/store/hooks";
 import {
   useCreateExpenseMutation,
   useCreatePaymentQrMutation,
+  useCreateReceiptExpenseDraftMutation,
   useCreateTelegramWalletConnectCodeMutation,
   useDeleteWalletMutation,
   useDeleteExpenseAttachmentMutation,
@@ -74,7 +78,7 @@ import {
   useUpdateExpenseMutation,
   useUploadExpenseAttachmentMutation,
 } from "@/src/store/tino-api-slice";
-import type { TelegramCode } from "@/src/services/tino-api";
+import type { ReceiptExpenseDraft, TelegramCode } from "@/src/services/tino-api";
 import type { Attachment, Expense, ExpenseSplit, PaymentQr, User } from "@/src/types/domain";
 
 function currentMonth() {
@@ -136,6 +140,8 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
     { skip: !authHydrated || !currentUser }
   );
   const [createExpense, createExpenseState] = useCreateExpenseMutation();
+  const [createReceiptExpenseDraft, receiptDraftState] =
+    useCreateReceiptExpenseDraftMutation();
   const [createTelegramWalletConnectCode, telegramCodeState] =
     useCreateTelegramWalletConnectCodeMutation();
   const [createPaymentQr, paymentQrState] = useCreatePaymentQrMutation();
@@ -180,6 +186,10 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
   const [splitMethod, setSplitMethod] = useState<"equal" | "amount" | "percentage" | "shares">("equal");
   const [splitValues, setSplitValues] = useState<Record<string, string>>({});
   const [newAttachmentFiles, setNewAttachmentFiles] = useState<File[]>([]);
+  const [receiptDraft, setReceiptDraft] = useState<ReceiptExpenseDraft | null>(
+    null
+  );
+  const receiptInputRef = useRef<HTMLInputElement | null>(null);
   const [telegramCode, setTelegramCode] = useState<TelegramCode | null>(null);
   const [paymentQr, setPaymentQr] = useState<PaymentQr | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -230,6 +240,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
   const loading =
     !authHydrated || membersLoading || expensesLoading || summaryLoading;
   const saving = createExpenseState.isLoading;
+  const receiptExtracting = receiptDraftState.isLoading;
   const inviteUserAlreadyMember = Boolean(
     inviteUser &&
     walletMembers?.some((member) => member.user_id === inviteUser.id)
@@ -401,6 +412,54 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
     }));
   }
 
+  async function handleReceiptDraftFile(file: File) {
+    if (!wallet) {
+      return;
+    }
+
+    setFormError(null);
+
+    try {
+      const draft = await createReceiptExpenseDraft({
+        walletId: wallet.id,
+        file,
+      }).unwrap();
+
+      setReceiptDraft(draft);
+      setTitle(draft.title);
+      setDescription(draft.description ?? "");
+      setExpenseDate(formatDateInput(draft.expense_date));
+      setSplitMethod("equal");
+      setSplitValues({});
+
+      if (draft.total_amount && draft.total_amount > 0) {
+        setAmount(formatMoneyInput(draft.total_amount));
+      }
+
+      setNewAttachmentFiles((current) => {
+        const withoutSameFile = current.filter(
+          (item) =>
+            item.name !== file.name ||
+            item.size !== file.size ||
+            item.lastModified !== file.lastModified
+        );
+
+        return [file, ...withoutSameFile].slice(0, 5);
+      });
+      toast.success("Đã đọc hoá đơn. Vui lòng kiểm tra trước khi lưu.");
+    } catch (err) {
+      const message =
+        typeof err === "object" &&
+          err !== null &&
+          "message" in err &&
+          typeof err.message === "string"
+          ? err.message
+          : "Không thể đọc ảnh hoá đơn";
+      setFormError(message);
+      toast.error(message);
+    }
+  }
+
   async function handleCreateExpense(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -465,6 +524,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
       setSplitMethod("equal");
       setSplitValues({});
       setNewAttachmentFiles([]);
+      setReceiptDraft(null);
       toast.success("Lưu chi tiêu thành công");
     } catch (err) {
       const message =
@@ -1316,42 +1376,89 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
 
         <Card>
           <CardHeader
+            action={
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      aria-label="Đọc hoá đơn"
+                      disabled={receiptExtracting || !wallet}
+                      onClick={() => receiptInputRef.current?.click()}
+                      size="icon"
+                      type="button"
+                      variant="ghost"
+                    />
+                  }
+                >
+                  {receiptExtracting ? (
+                    <LoaderCircle className="animate-spin" size={18} />
+                  ) : (
+                    <FileSearch size={18} />
+                  )}
+                </TooltipTrigger>
+                <TooltipContent>
+                  {receiptExtracting ? "Đang đọc hoá đơn" : "Đọc hoá đơn"}
+                </TooltipContent>
+              </Tooltip>
+            }
             description="Lưu khoản chi vào ví đang chọn"
             title="Thêm chi tiêu"
           />
           <CardBody>
             <form className="space-y-4" id="create-expense-form" onSubmit={handleCreateExpense}>
+              <input
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+
+                  if (file) {
+                    void handleReceiptDraftFile(file);
+                  }
+                }}
+                ref={receiptInputRef}
+                type="file"
+              />
               <TextField
+                className={receiptExtracting ? "animate-pulse bg-zinc-100 dark:bg-zinc-900" : undefined}
+                disabled={receiptExtracting}
                 label="Tên khoản chi"
                 onChange={(event) => setTitle(event.target.value)}
-                placeholder="Tiền nhà tháng này"
+                placeholder={receiptExtracting ? "Đang nhận diện tên khoản chi..." : "Tiền nhà tháng này"}
                 required
                 value={title}
               />
               <TextAreaField
+                className={receiptExtracting ? "animate-pulse bg-zinc-100 dark:bg-zinc-900" : undefined}
+                disabled={receiptExtracting}
                 label="Mô tả"
                 onChange={(event) => setDescription(event.target.value)}
-                placeholder="Thông tin bổ sung"
+                placeholder={receiptExtracting ? "Đang đọc nội dung hoá đơn..." : "Thông tin bổ sung"}
                 value={description}
               />
               <div className="grid grid-cols-2 gap-3">
                 <TextField
+                  className={receiptExtracting ? "animate-pulse bg-zinc-100 dark:bg-zinc-900" : undefined}
+                  disabled={receiptExtracting}
                   label="Số tiền"
                   min="1"
                   inputMode="numeric"
                   onChange={(event) =>
                     setAmount(formatMoneyInput(event.target.value))
                   }
-                  placeholder="0"
+                  placeholder={receiptExtracting ? "Đang đọc..." : "0"}
                   required
                   type="text"
                   value={amount}
                 />
                 <TextField
+                  className={receiptExtracting ? "animate-pulse bg-zinc-100 dark:bg-zinc-900" : undefined}
+                  disabled={receiptExtracting}
                   label="Ngày"
                   onChange={(event) => setExpenseDate(event.target.value)}
                   required
-                  placeholder="dd/MM/yyyy"
+                  placeholder={receiptExtracting ? "Đang đọc..." : "dd/MM/yyyy"}
                   type="text"
                   value={expenseDate}
                 />
@@ -1489,7 +1596,7 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
 
               <Button
                 className="w-full"
-                disabled={saving || uploadAttachmentState.isLoading}
+                disabled={saving || uploadAttachmentState.isLoading || receiptExtracting}
                 type="submit"
               >
                 <Plus size={17} />

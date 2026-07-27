@@ -31,11 +31,13 @@ The current product should support:
 - Linking a Tino account and wallet to Telegram.
 - Creating equal-split expenses from Telegram group messages.
 - Receiving in-app notifications for expense changes in shared wallets.
+- Creating a web expense draft from an uploaded receipt image using Azure
+  Document Intelligence, then requiring the user to review and confirm before
+  the expense is saved.
 
 The product direction still does not assume these unless explicitly requested:
 
 - Bank integrations.
-- OCR receipt scanning.
 - AI categorization.
 - Multi-currency conversion.
 - Supabase Auth.
@@ -537,10 +539,21 @@ Backend environment variables:
 - `S3_SECRET_ACCESS_KEY`
 - `S3_FORCE_PATH_STYLE`: normally `true` for local MinIO.
 - `S3_PUBLIC_BASE_URL`: public bucket/base URL used to build avatar URLs.
+- `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT`: Azure Document Intelligence endpoint
+  used by backend-only receipt analysis.
+- `AZURE_DOCUMENT_INTELLIGENCE_KEY`: Azure Document Intelligence API key. Never
+  expose this key to frontend clients.
+- `AZURE_DOCUMENT_INTELLIGENCE_API_VERSION`: optional, defaults to
+  `2024-11-30`.
 
 The bucket must allow public reads through its bucket policy or be exposed
 through a public CDN/base URL. Avatar uploads are limited to 5 MB and expense
 images to 10 MB. JPEG, PNG, WebP, and GIF are accepted.
+
+Receipt OCR uses the Azure `prebuilt-receipt` model from the backend. The OCR
+endpoint returns a draft only; expense creation still goes through the normal
+expense form so users can correct title, amount, date, split method, and
+attachments before saving.
 
 ## Coding Conventions
 
