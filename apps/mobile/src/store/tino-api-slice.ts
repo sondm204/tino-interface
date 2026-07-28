@@ -22,6 +22,7 @@ import {
   type CreateExpensePayload,
   type CreateWalletPayload,
   type LoginPayload,
+  type ReceiptExpenseDraft,
   type RegisterPayload,
   type RecentExpense,
   type TelegramCode,
@@ -212,6 +213,13 @@ export const tinoApiSlice = createApi({
         { type: "Wallets", id: "LIST" },
       ],
     }),
+    createReceiptExpenseDraft: builder.mutation<
+      ReceiptExpenseDraft,
+      { walletId: string; file: UploadAvatarFile }
+    >({
+      queryFn: ({ walletId, file }) =>
+        runApi(() => tinoApi.createReceiptExpenseDraft(walletId, file)),
+    }),
     updateExpense: builder.mutation<
       Expense,
       {
@@ -298,6 +306,7 @@ export const {
   useCreateBankAccountMutation,
   useCreateExpenseMutation,
   useCreatePaymentQrMutation,
+  useCreateReceiptExpenseDraftMutation,
   useCreateTelegramLinkCodeMutation,
   useCreateTelegramWalletConnectCodeMutation,
   useCreateWalletMutation,

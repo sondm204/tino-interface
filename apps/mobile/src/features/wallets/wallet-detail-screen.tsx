@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   Modal,
@@ -17,6 +18,7 @@ import {
   ArrowLeft,
   CalendarDays,
   Copy,
+  FileSearch,
   ImagePlus,
   Plus,
   QrCode,
@@ -45,6 +47,7 @@ import { useAppSelector } from "@/store/hooks";
 import {
   useCreateExpenseMutation,
   useCreatePaymentQrMutation,
+  useCreateReceiptExpenseDraftMutation,
   useCreateTelegramWalletConnectCodeMutation,
   useDeleteExpenseAttachmentMutation,
   useDeleteExpenseMutation,
@@ -55,7 +58,7 @@ import {
   useUpdateExpenseMutation,
   useUploadExpenseAttachmentMutation,
 } from "@/store/tino-api-slice";
-import type { TelegramCode } from "@/services/tino-api";
+import type { ReceiptExpenseDraft, TelegramCode } from "@/services/tino-api";
 import type { Attachment, Expense, ExpenseSplit, PaymentQr } from "@/types/domain";
 
 const splitOptions = [
@@ -86,6 +89,14 @@ function formatExpenseDay(date: string) {
     month: "2-digit",
     weekday: "long",
   }).format(new Date(`${date.slice(0, 10)}T00:00:00`));
+}
+
+function toIsoDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 function getSplitAmount(
@@ -137,6 +148,11 @@ export function WalletDetailScreen() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
+  const [expenseDate, setExpenseDate] = useState(toIsoDate(new Date()));
+  const [createDatePickerVisible, setCreateDatePickerVisible] = useState(false);
+  const [receiptDraft, setReceiptDraft] = useState<ReceiptExpenseDraft | null>(
+    null
+  );
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editAmount, setEditAmount] = useState("");
@@ -161,6 +177,8 @@ export function WalletDetailScreen() {
   const membersQuery = useGetWalletMembersQuery(walletId, { skip: !walletId });
   const summaryQuery = useGetSummaryQuery({ walletId, month }, { skip: !walletId });
   const [createExpense, createState] = useCreateExpenseMutation();
+  const [createReceiptExpenseDraft, receiptDraftState] =
+    useCreateReceiptExpenseDraftMutation();
   const [createTelegramWalletConnectCode, telegramCodeState] =
     useCreateTelegramWalletConnectCodeMutation();
   const [createPaymentQr, paymentQrState] = useCreatePaymentQrMutation();
@@ -172,6 +190,7 @@ export function WalletDetailScreen() {
   const [deleteExpense, deleteState] = useDeleteExpenseMutation();
   const [inviteWalletMember, inviteWalletMemberState] =
     useInviteWalletMemberMutation();
+  const receiptExtracting = receiptDraftState.isLoading;
 
   const memberNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -316,6 +335,51 @@ export function WalletDetailScreen() {
     };
   }
 
+  async function handlePickReceiptDraft() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      alert("Cần cấp quyền", "Bạn cần cấp quyền truy cập thư viện ảnh.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsMultipleSelection: false,
+      mediaTypes: ["images"],
+      quality: 0.85,
+    });
+
+    if (result.canceled || result.assets.length === 0) {
+      return;
+    }
+
+    const asset = result.assets[0];
+
+    try {
+      const draft = await createReceiptExpenseDraft({
+        walletId,
+        file: toUploadFile(asset),
+      }).unwrap();
+
+      setReceiptDraft(draft);
+      setTitle(draft.title);
+      setAmount(draft.total_amount ? formatMoneyInput(draft.total_amount) : "");
+      setExpenseDate(draft.expense_date);
+      setSplitMethod("equal");
+      setSplitValues({});
+      setNewAttachmentAssets((current) => {
+        const withoutSameAsset = current.filter((item) => item.uri !== asset.uri);
+
+        return [asset, ...withoutSameAsset].slice(0, 5);
+      });
+    } catch (error) {
+      alert(
+        "Không thể đọc hoá đơn",
+        error instanceof Error ? error.message : "Đã có lỗi xảy ra."
+      );
+    }
+  }
+
   async function handlePickCreateAttachments() {
     const assets = await pickImages();
     if (assets.length > 0) setNewAttachmentAssets(assets);
@@ -409,9 +473,9 @@ export function WalletDetailScreen() {
       walletId,
       payload: {
         category_id: null,
-        currency: "VND",
+        currency: summaryQuery.data?.currency || "VND",
         description: null,
-        expense_date: new Date().toISOString().slice(0, 10),
+        expense_date: expenseDate,
         paid_by_user_id: payerId,
         split_method: splitMethod,
         splits,
@@ -445,6 +509,8 @@ export function WalletDetailScreen() {
     setCreateDialogVisible(false);
     setTitle("");
     setAmount("");
+    setExpenseDate(toIsoDate(new Date()));
+    setReceiptDraft(null);
     setSplitMethod("equal");
     setSplitValues({});
     setNewAttachmentAssets([]);
@@ -976,16 +1042,88 @@ export function WalletDetailScreen() {
 
       <Dialog
         open={createDialogVisible}
-        onOpenChange={setCreateDialogVisible}
+        onOpenChange={(open) => {
+          setCreateDialogVisible(open);
+
+          if (!open) {
+            setCreateDatePickerVisible(false);
+          }
+        }}
+        action={
+          <Button
+            accessibilityLabel="Đọc hoá đơn"
+            className="size-11 px-0"
+            disabled={receiptExtracting}
+            onPress={() => void handlePickReceiptDraft()}
+            variant="ghost"
+          >
+            {receiptExtracting ? (
+              <ActivityIndicator color={isDark ? "#f8fafc" : "#0f172a"} />
+            ) : (
+              <FileSearch color={isDark ? "#f8fafc" : "#0f172a"} size={18} />
+            )}
+          </Button>
+        }
         title="Thêm khoản chi"
       >
-        <Input onChangeText={setTitle} placeholder="Tên khoản chi" value={title} />
         <Input
+          className={receiptExtracting ? "animate-pulse bg-slate-100 opacity-70 dark:bg-slate-800" : undefined}
+          editable={!receiptExtracting}
+          onChangeText={setTitle}
+          placeholder={
+            receiptExtracting ? "Đang nhận diện tên khoản chi..." : "Tên khoản chi"
+          }
+          value={title}
+        />
+        <Input
+          className={receiptExtracting ? "animate-pulse bg-slate-100 opacity-70 dark:bg-slate-800" : undefined}
+          editable={!receiptExtracting}
           keyboardType="numeric"
           onChangeText={(value) => setAmount(formatMoneyInput(value))}
-          placeholder="Số tiền"
+          placeholder={receiptExtracting ? "Đang đọc số tiền..." : "Số tiền"}
           value={amount}
         />
+        {Platform.OS === "web" ? (
+          <Input
+            className={receiptExtracting ? "animate-pulse bg-slate-100 opacity-70 dark:bg-slate-800" : undefined}
+            editable={!receiptExtracting}
+            onChangeText={setExpenseDate}
+            placeholder="Ngày chi (YYYY-MM-DD)"
+            value={expenseDate}
+          />
+        ) : (
+          <>
+            <Pressable
+              className={`min-h-12 flex-row items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 dark:border-slate-700 dark:bg-slate-900 ${receiptExtracting ? "animate-pulse opacity-70" : ""}`}
+              disabled={receiptExtracting}
+              onPress={() => setCreateDatePickerVisible(true)}
+            >
+              <CalendarDays color={isDark ? "#cbd5e1" : "#475569"} size={18} />
+              <Text className="flex-1">
+                {new Intl.DateTimeFormat("vi-VN", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                }).format(new Date(`${expenseDate}T00:00:00`))}
+              </Text>
+            </Pressable>
+            {createDatePickerVisible ? (
+              <DateTimePicker
+                display={Platform.OS === "ios" ? "compact" : "default"}
+                mode="date"
+                themeVariant={isDark ? "dark" : "light"}
+                onChange={(_event, date) => {
+                  setCreateDatePickerVisible(false);
+
+                  if (date) {
+                    setExpenseDate(toIsoDate(date));
+                  }
+                }}
+                value={new Date(`${expenseDate}T00:00:00`)}
+              />
+            ) : null}
+          </>
+        )}
         {summaryQuery.data?.wallet.type === "shared" ? (
           <>
             <View>
@@ -1091,7 +1229,12 @@ export function WalletDetailScreen() {
         <View className="flex-row justify-end gap-2">
           <Button onPress={() => setCreateDialogVisible(false)} variant="ghost">Hủy</Button>
           <Button
-            loading={createState.isLoading || uploadAttachmentState.isLoading}
+            disabled={receiptExtracting}
+            loading={
+              createState.isLoading ||
+              uploadAttachmentState.isLoading ||
+              receiptExtracting
+            }
             onPress={handleCreateExpense}
           >
             Lưu

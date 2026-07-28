@@ -4,6 +4,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  View,
   useWindowDimensions,
 } from "react-native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
@@ -13,13 +14,14 @@ import { useKeyboardHeight } from "@/hooks/use-keyboard-height";
 import { Text } from "@/components/ui/text";
 
 type DialogProps = {
+  action?: React.ReactNode;
   children: React.ReactNode;
   onOpenChange: (open: boolean) => void;
   open: boolean;
   title?: string;
 };
 
-export function Dialog({ children, onOpenChange, open, title }: DialogProps) {
+export function Dialog({ action, children, onOpenChange, open, title }: DialogProps) {
   const insets = useSafeAreaInsets();
   const keyboardHeight = useKeyboardHeight();
   const isExpoGo =
@@ -49,7 +51,14 @@ export function Dialog({ children, onOpenChange, open, title }: DialogProps) {
                 paddingBottom: Math.max(insets.bottom + 20, 32),
               }}
             >
-              {title ? <Text className="mb-4" variant="title">{title}</Text> : null}
+              {title || action ? (
+                <View
+                  className="mb-4 flex-row items-center justify-between gap-3"
+                >
+                  {title ? <Text className="flex-1" variant="title">{title}</Text> : null}
+                  {action}
+                </View>
+              ) : null}
               <ScrollView
                 contentContainerClassName="gap-3"
                 keyboardDismissMode="on-drag"
