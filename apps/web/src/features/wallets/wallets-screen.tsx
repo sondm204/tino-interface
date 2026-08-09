@@ -9,6 +9,7 @@ import { Button } from "@/src/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/src/components/ui/card";
 import { EmptyState } from "@/src/components/ui/empty-state";
 import { SelectField, TextAreaField, TextField } from "@/src/components/ui/field";
+import { MonthPicker } from "@/src/components/ui/month-picker";
 import { Badge } from "@/src/components/ui/status";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/src/lib/format";
@@ -22,16 +23,16 @@ import {
 export function WalletsScreen() {
   const currentUser = useAppSelector((state) => state.auth.user);
   const authHydrated = useAppSelector((state) => state.auth.hydrated);
-  const currentMonth = useMemo(() => {
+  const [month, setMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  }, []);
+  });
   const {
     data: walletsData,
     error: walletsError,
     isLoading: walletsLoading,
   } = useGetWalletsQuery(
-    { page: 1, size: 20, month: currentMonth },
+    { page: 1, size: 20, month },
     { skip: !authHydrated || !currentUser }
   );
   const [createWallet, createWalletState] = useCreateWalletMutation();
@@ -45,8 +46,8 @@ export function WalletsScreen() {
   const saving = createWalletState.isLoading;
   const queryError =
     walletsError &&
-    "message" in walletsError &&
-    typeof walletsError.message === "string"
+      "message" in walletsError &&
+      typeof walletsError.message === "string"
       ? walletsError.message
       : null;
   const error = formError || queryError;
@@ -99,9 +100,9 @@ export function WalletsScreen() {
     } catch (err) {
       const message =
         typeof err === "object" &&
-        err !== null &&
-        "message" in err &&
-        typeof err.message === "string"
+          err !== null &&
+          "message" in err &&
+          typeof err.message === "string"
           ? err.message
           : "Không thể tạo ví";
       setFormError(message);
@@ -117,39 +118,48 @@ export function WalletsScreen() {
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-5">
           <section className="grid gap-3 md:grid-cols-3">
-            <Card className="p-4">
+            <Card className="p-4 gap-2">
               <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
                 Tổng số ví
               </p>
               {loading ? (
-                <Skeleton className="mt-3 h-8 w-16" />
+                <Skeleton className="h-8 w-16" />
               ) : (
-                <p className="mt-3 text-2xl font-semibold">{totalWallets}</p>
+                <p className="text-2xl font-semibold">{totalWallets}</p>
               )}
             </Card>
-            <Card className="p-4">
+            <Card className="p-4 gap-2">
               <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
                 Ví nhóm
               </p>
               {loading ? (
-                <Skeleton className="mt-3 h-8 w-16" />
+                <Skeleton className="h-8 w-16" />
               ) : (
-                <p className="mt-3 text-2xl font-semibold">{sharedWallets}</p>
+                <p className="text-2xl font-semibold">{sharedWallets}</p>
               )}
             </Card>
             <Card className="p-4">
-              <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                Tổng chi tiêu của bạn
-              </p>
-              {loading ? (
-                <Skeleton className="mt-3 h-8 w-28" />
-              ) : (
-                <p className="mt-3 text-xl font-semibold md:text-2xl">
-                  {currentUserExpenseByCurrency
-                    .map(([currency, amount]) => formatCurrency(amount, currency))
-                    .join(" + ")}
-                </p>
-              )}
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                    Tổng chi tiêu của bạn
+                  </p>
+                  {loading ? (
+                    <Skeleton className="mt-3 h-8 w-28" />
+                  ) : (
+                    <p className="mt-2 text-xl font-semibold md:text-2xl">
+                      {currentUserExpenseByCurrency
+                        .map(([currency, amount]) => formatCurrency(amount, currency))
+                        .join(" + ")}
+                    </p>
+                  )}
+                </div>
+                <MonthPicker
+                  ariaLabel="Chọn tháng tổng chi tiêu"
+                  onValueChange={setMonth}
+                  value={month}
+                />
+              </div>
             </Card>
           </section>
 

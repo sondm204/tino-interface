@@ -13,7 +13,6 @@ import {
 } from "react";
 import {
   ArrowLeft,
-  CalendarDays,
   Copy,
   FileSearch,
   ImagePlus,
@@ -33,6 +32,7 @@ import { Card, CardBody, CardHeader } from "@/src/components/ui/card";
 import { ConfirmDialog } from "@/src/components/ui/confirm-dialog";
 import { EmptyState } from "@/src/components/ui/empty-state";
 import { SelectField, TextAreaField, TextField } from "@/src/components/ui/field";
+import { MonthPicker } from "@/src/components/ui/month-picker";
 import { Badge } from "@/src/components/ui/status";
 import {
   Dialog,
@@ -1065,73 +1065,15 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
             </Card>
           </section>
 
-          {wallet && currentUser?.id === wallet.owner_id ? (
-            <Card className="p-4">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 font-semibold">
-                    <Send size={18} />
-                    Kết nối Telegram
-                  </div>
-                  {telegramCode ? (
-                    <>
-                      <p className="mt-2 font-mono text-lg font-semibold tracking-wider">
-                        /connect {telegramCode.code}
-                      </p>
-                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                        Hết hạn lúc{" "}
-                        {new Intl.DateTimeFormat("vi-VN", {
-                          dateStyle: "short",
-                          timeStyle: "short",
-                        }).format(new Date(telegramCode.expires_at))}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                      Tạo mã một lần, sau đó gửi lệnh trong Telegram group.
-                    </p>
-                  )}
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  {telegramCode ? (
-                    <Button
-                      onClick={() => void handleCopyTelegramWalletCode()}
-                      type="button"
-                      variant="outline"
-                    >
-                      <Copy size={16} />
-                      Sao chép
-                    </Button>
-                  ) : null}
-                  <Button
-                    disabled={telegramCodeState.isLoading}
-                    onClick={() => void handleCreateTelegramWalletCode()}
-                    type="button"
-                  >
-                    <Send size={16} />
-                    {telegramCodeState.isLoading
-                      ? "Đang tạo..."
-                      : telegramCode
-                        ? "Tạo mã mới"
-                        : "Tạo mã"}
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          ) : null}
-
           <Card>
             <CardHeader
               action={
-                <div className="flex items-center gap-2">
-                  <CalendarDays size={16} />
-                  <input
-                    className="h-9 rounded-md border border-zinc-200 bg-white px-3 text-sm outline-none dark:border-zinc-800 dark:bg-zinc-950"
-                    onChange={(event) => void handleMonthChange(event.target.value)}
-                    type="month"
-                    value={month}
-                  />
-                </div>
+                <MonthPicker
+                  ariaLabel="Chọn tháng chi tiêu"
+                  onValueChange={handleMonthChange}
+                  value={month}
+                  variant="button"
+                />
               }
               description="Các khoản chi tiêu hiện tại của ví"
               title="Chi tiêu"
@@ -1372,6 +1314,61 @@ export function WalletDetailScreen({ walletId }: { walletId: string }) {
               )}
             </Card>
           </section>
+
+          {wallet && currentUser?.id === wallet.owner_id ? (
+            <Card className="p-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 font-semibold">
+                    <Send size={18} />
+                    Kết nối Telegram
+                  </div>
+                  {telegramCode ? (
+                    <>
+                      <p className="mt-2 font-mono text-lg font-semibold tracking-wider">
+                        /connect {telegramCode.code}
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        Hết hạn lúc{" "}
+                        {new Intl.DateTimeFormat("vi-VN", {
+                          dateStyle: "short",
+                          timeStyle: "short",
+                        }).format(new Date(telegramCode.expires_at))}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                      Tạo mã một lần, sau đó gửi lệnh trong Telegram group.
+                    </p>
+                  )}
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  {telegramCode ? (
+                    <Button
+                      onClick={() => void handleCopyTelegramWalletCode()}
+                      type="button"
+                      variant="outline"
+                    >
+                      <Copy size={16} />
+                      Sao chép
+                    </Button>
+                  ) : null}
+                  <Button
+                    disabled={telegramCodeState.isLoading}
+                    onClick={() => void handleCreateTelegramWalletCode()}
+                    type="button"
+                  >
+                    <Send size={16} />
+                    {telegramCodeState.isLoading
+                      ? "Đang tạo..."
+                      : telegramCode
+                        ? "Tạo mã mới"
+                        : "Tạo mã"}
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          ) : null}
         </div>
 
         <Card>

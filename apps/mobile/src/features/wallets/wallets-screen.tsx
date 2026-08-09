@@ -10,23 +10,45 @@ import { Input } from "@/components/ui/input";
 import { RadioItem } from "@/components/ui/radio-group";
 import { Text } from "@/components/ui/text";
 import { EmptyState, LoadingState, Screen } from "@/components/screen";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, getCurrentMonth } from "@/lib/format";
 import { walletTypeLabel } from "@/lib/labels";
 import {
   useCreateWalletMutation,
   useGetWalletsQuery,
 } from "@/store/tino-api-slice";
 
+function getMonthOptions(count = 12) {
+  const today = new Date();
+
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(today.getFullYear(), today.getMonth() - index, 1);
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const value = `${date.getFullYear()}-${month}`;
+
+    return {
+      month,
+      value,
+      year: String(date.getFullYear()),
+    };
+  });
+}
+
+function monthParts(month: string) {
+  const [year, monthNumber] = month.split("-");
+
+  return { monthNumber, year };
+}
+
 export function WalletsScreen() {
   const { alert } = useAlertDialog();
-  const currentMonth = useMemo(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  }, []);
+  const [month, setMonth] = useState(getCurrentMonth());
+  const [monthDialogVisible, setMonthDialogVisible] = useState(false);
+  const monthOptions = useMemo(() => getMonthOptions(), []);
+  const selectedMonth = monthParts(month);
   const { data, isFetching, isLoading, refetch } = useGetWalletsQuery({
     page: 1,
     size: 50,
-    month: currentMonth,
+    month,
   });
   const [createWallet, createState] = useCreateWalletMutation();
   const [dialogVisible, setDialogVisible] = useState(false);
@@ -90,13 +112,28 @@ export function WalletsScreen() {
           </Button>
         </View>
 
-        <Card className="gap-1">
-          <Text variant="muted">Tổng chi tiêu của bạn tháng này</Text>
-          <Text variant="headline">
-            {currentUserExpenseByCurrency
-              .map(([currency, amount]) => formatCurrency(amount, currency))
-              .join(" + ")}
-          </Text>
+        <Card className="flex-row items-center gap-3">
+          <View className="min-w-0 flex-1 gap-1">
+            <Text variant="muted">Tổng chi tiêu của bạn</Text>
+            <Text className="text-2xl font-bold" numberOfLines={2}>
+              {currentUserExpenseByCurrency
+                .map(([currency, amount]) => formatCurrency(amount, currency))
+                .join(" + ")}
+            </Text>
+          </View>
+          <Pressable
+            accessibilityLabel="Chọn tháng tổng chi tiêu"
+            accessibilityRole="button"
+            className="size-16 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950"
+            onPress={() => setMonthDialogVisible(true)}
+          >
+            <Text className="text-2xl font-bold leading-7">
+              {selectedMonth.monthNumber}
+            </Text>
+            <Text className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {selectedMonth.year}
+            </Text>
+          </Pressable>
         </Card>
 
         <FlatList
@@ -130,6 +167,39 @@ export function WalletsScreen() {
           )}
         />
       </Screen>
+
+      <Dialog
+        open={monthDialogVisible}
+        onOpenChange={setMonthDialogVisible}
+        title="Chọn tháng"
+      >
+        <View className="flex-row flex-wrap gap-3">
+          {monthOptions.map((option) => {
+            const selected = option.value === month;
+
+            return (
+              <Pressable
+                className={`w-[30%] items-center rounded-xl border px-3 py-3 ${selected
+                    ? "border-slate-900 bg-slate-900 dark:border-blue-500 dark:bg-blue-600"
+                    : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+                  }`}
+                key={option.value}
+                onPress={() => {
+                  setMonth(option.value);
+                  setMonthDialogVisible(false);
+                }}
+              >
+                <Text className={`text-2xl font-bold ${selected ? "text-white" : ""}`}>
+                  {option.month}
+                </Text>
+                <Text className={`text-xs font-semibold ${selected ? "text-slate-300 dark:text-blue-100" : "text-slate-500 dark:text-slate-400"}`}>
+                  {option.year}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </Dialog>
 
       <Dialog open={dialogVisible} onOpenChange={setDialogVisible} title="Tạo ví mới">
         <Input onChangeText={setName} placeholder="Tên ví" value={name} />
