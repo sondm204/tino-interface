@@ -30,6 +30,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAlertDialog } from "@/components/ui/alert-dialog";
 import { useTheme } from "@/components/theme-provider";
+import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -97,6 +98,16 @@ function toIsoDate(date: Date) {
   const day = String(date.getDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
+}
+
+function getInitials(value: string) {
+  const words = value.trim().split(/\s+/).filter(Boolean);
+
+  if (words.length >= 2) {
+    return `${words[0][0]}${words[1][0]}`.toUpperCase();
+  }
+
+  return (words[0] || "T").slice(0, 2).toUpperCase();
 }
 
 function getSplitAmount(
@@ -196,6 +207,14 @@ export function WalletDetailScreen() {
     const map = new Map<string, string>();
     membersQuery.data?.forEach((member) => {
       map.set(member.user_id, member.user.display_name || member.user.email);
+    });
+    return map;
+  }, [membersQuery.data]);
+
+  const memberById = useMemo(() => {
+    const map = new Map<string, NonNullable<typeof membersQuery.data>[number]>();
+    membersQuery.data?.forEach((member) => {
+      map.set(member.user_id, member);
     });
     return map;
   }, [membersQuery.data]);
@@ -836,25 +855,46 @@ export function WalletDetailScreen() {
                   {formatExpenseDay(group.date)}
                 </Text>
               </View>
-              {group.data.map((expense, index) => (
-                <Pressable
-                  className={index > 0 ? "border-t border-slate-100 dark:border-slate-800" : ""}
-                  key={expense.id}
-                  onPress={() => openEditExpense(expense)}
-                >
-                  <View className="flex-row items-center gap-3 px-4 py-3.5">
-                    <View className="flex-1">
-                      <Text variant="title">{expense.title}</Text>
-                      <Text variant="muted">
-                        {splitMethodLabel(expense.split_method)}
+              {group.data.map((expense, index) => {
+                const payer = memberById.get(expense.paid_by_user_id);
+                const payerName =
+                  payer?.user.display_name ||
+                  payer?.user.email ||
+                  memberNameById.get(expense.paid_by_user_id) ||
+                  expense.paid_by_user_id;
+                const showPayer = summaryQuery.data?.wallet.type === "shared";
+
+                return (
+                  <Pressable
+                    className={index > 0 ? "border-t border-slate-100 dark:border-slate-800" : ""}
+                    key={expense.id}
+                    onPress={() => openEditExpense(expense)}
+                  >
+                    <View className="flex-row items-center gap-3 px-4 py-3.5">
+                      {showPayer ? (
+                        <Avatar
+                          initials={getInitials(payerName)}
+                          size={38}
+                          uri={payer?.user.avatar_url}
+                        />
+                      ) : null}
+                      <View className="min-w-0 flex-1">
+                        <Text numberOfLines={1} variant="title">
+                          {expense.title}
+                        </Text>
+                        {showPayer && (
+                        <Text numberOfLines={1} variant="muted">
+                            {splitMethodLabel(expense.split_method)}
+                        </Text>
+                        )}
+                      </View>
+                      <Text className="font-semibold">
+                        {formatCurrency(expense.total_amount, expense.currency)}
                       </Text>
                     </View>
-                    <Text className="font-semibold">
-                      {formatCurrency(expense.total_amount, expense.currency)}
-                    </Text>
-                  </View>
-                </Pressable>
-              ))}
+                  </Pressable>
+                );
+              })}
             </Card>
           )}
         />
